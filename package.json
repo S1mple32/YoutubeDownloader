@@ -1,0 +1,65 @@
+{
+  "name": "ytmark1",
+  "version": "1.0.0",
+  "description": "A desktop and Docker video download manager.",
+  "author": "YtMark1",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "desktop": "electron .",
+    "install:desktop-deps": "node scripts/install-dependencies.js",
+    "postinstall": "node scripts/install-dependencies.js",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:desktop": "electron-builder --mac --win"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "build": {
+    "appId": "com.ytmark1.app",
+    "productName": "YtMark1",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "scripts/**/*",
+      "public/**/*",
+      "server.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".venv",
+        "to": ".venv",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

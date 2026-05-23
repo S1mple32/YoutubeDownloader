@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Media Sync Dock</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-row">
+          <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">
+            <span aria-hidden="true">⚙</span>
+          </button>
+          <div>
+            <p class="eyebrow">Docker media utility</p>
+            <h1>Media Sync Dock</h1>
+          </div>
+        </div>
+        <div class="server-pill" aria-label="Server status">
+          <span class="pulse" aria-hidden="true"></span>
+          <span id="server-state">Online</span>
+        </div>
+      </header>
+
+      <section class="notice" aria-label="Usage notice">
+        Download and sync only media you own, created, licensed, or have explicit permission to save.
+        YouTube links are supported for playlist organization and permitted downloads only.
+      </section>
+
+      <section class="workspace">
+        <form class="panel command-panel" id="download-form">
+          <div class="panel__heading">
+            <div>
+              <p class="eyebrow">Download</p>
+              <h2>Add a video link</h2>
+            </div>
+            <span class="metric" id="queue-count">0 queued</span>
+          </div>
+
+          <label class="field">
+            <span>Video URL</span>
+            <input id="video-url" type="url" placeholder="https://www.youtube.com/watch?v=..." required>
+          </label>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>Quality</span>
+              <select id="quality">
+                <option value="best">Best available</option>
+                <option value="2160p-only">4K only / 2160p</option>
+                <option value="2160p">4K / 2160p</option>
+                <option value="1080p" selected>1080p</option>
+                <option value="720p">720p</option>
+                <option value="audio">Audio only</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Format</span>
+              <select id="format">
+                <option value="native" selected>Fast native</option>
+                <option value="mp4">MP4</option>
+                <option value="webm">WebM</option>
+                <option value="mp3">MP3</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="check">
+            <input id="permission-confirmed" type="checkbox">
+            <span>I have rights or permission to download this media.</span>
+          </label>
+
+          <button class="button button--primary" type="submit">Add to queue</button>
+          <p class="form-message" id="download-message" role="status"></p>
+        </form>
+
+        <form class="panel" id="playlist-form">
+          <div class="panel__heading">
+            <div>
+              <p class="eyebrow">Playlists</p>
+              <h2>Sync a playlist</h2>
+            </div>
+            <span class="metric" id="playlist-count">0 synced</span>
+          </div>
+
+          <label class="field">
+            <span>Playlist URL</span>
+            <input id="playlist-url" type="url" placeholder="https://www.youtube.com/playlist?list=..." required>
+          </label>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>Name</span>
+              <input id="playlist-name" type="text" placeholder="My channel uploads">
+            </label>
+            <label class="field">
+              <span>Sync</span>
+              <select id="sync-interval">
+                <option value="manual">Manual</option>
+                <option value="3h">Every 3 hours</option>
+                <option value="6h" selected>Every 6 hours</option>
+                <option value="24h">Daily</option>
+                <option value="custom-interval">Custom interval</option>
+                <option value="daily-time">Specific time</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid schedule-extra" id="schedule-extra" hidden>
+            <label class="field" id="custom-interval-field" hidden>
+              <span>Every</span>
+              <input id="custom-interval-hours" type="number" min="1" max="168" value="3">
+            </label>
+            <label class="field" id="daily-time-field" hidden>
+              <span>At</span>
+              <input id="sync-time" type="time" value="09:00">
+            </label>
+          </div>
+
+          <button class="button" type="submit">Sync playlist</button>
+          <p class="form-message" id="playlist-message" role="status"></p>
+        </form>
+      </section>
+
+      <section class="lists">
+        <article class="panel">
+          <div class="panel__heading">
+            <div>
+              <p class="eyebrow">Queue</p>
+              <h2>Download jobs</h2>
+            </div>
+          </div>
+          <div class="empty" id="jobs-empty">No downloads yet.</div>
+          <div class="job-list" id="job-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel__heading">
+            <div>
+              <p class="eyebrow">Library</p>
+              <h2>Synced playlists</h2>
+            </div>
+          </div>
+          <div class="empty" id="playlists-empty">No synced playlists yet.</div>
+          <div class="playlist-list" id="playlist-list"></div>
+        </article>
+      </section>
+
+      <section class="panel history-panel">
+        <div class="panel__heading">
+          <div>
+            <p class="eyebrow">History</p>
+            <h2>Downloaded files</h2>
+          </div>
+          <span class="metric" id="history-count">0 saved</span>
+        </div>
+        <div class="empty" id="history-empty">No completed downloads yet.</div>
+        <div class="history-list" id="history-list"></div>
+      </section>
+    </main>
+
+    <div class="modal" id="settings-modal" hidden>
+      <div class="modal__scrim" data-close-settings></div>
+      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="panel__heading">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2 id="settings-title">YouTube cookies</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-settings aria-label="Close settings" title="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <p class="settings-note">
+          Upload a Netscape-format cookies.txt exported from your signed-in browser. Store this only on your own machine.
+        </p>
+
+        <form id="cookies-form">
+          <label class="field">
+            <span>Cookies file</span>
+            <input id="cookies-file" type="file" accept=".txt,text/plain">
+          </label>
+          <button class="button button--primary" type="submit">Upload cookies</button>
+          <p class="form-message" id="cookies-message" role="status"></p>
+        </form>
+
+        <div class="settings-status">
+          <span>Current status</span>
+          <strong id="cookies-status">Checking...</strong>
+        </div>
+
+        <hr class="settings-divider">
+
+        <form id="downloads-form">
+          <label class="field">
+            <span>Download folder</span>
+            <input id="downloads-dir" type="text" placeholder="/app/downloads">
+          </label>
+          <button class="button" type="submit">Save folder</button>
+          <p class="form-message" id="downloads-message" role="status"></p>
+        </form>
+
+        <div class="settings-status">
+          <span>Active folder</span>
+          <strong id="downloads-status">Checking...</strong>
+        </div>
+      </section>
+    </div>
+
+    <script src="/script.js"></script>
+  </body>
+</html>

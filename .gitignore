@@ -1,0 +1,11 @@
+node_modules/
+.venv/
+release/
+dist/
+
+downloads/
+data/
+secrets/
+
+.DS_Store
+*.log
