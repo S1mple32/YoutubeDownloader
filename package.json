@@ -1,6 +1,6 @@
 {
   "name": "ytmark1",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A desktop and Docker video download manager.",
   "author": "YtMark1",
   "main": "electron/main.js",
@@ -9,7 +9,10 @@
     "dev": "node --watch server.js",
     "desktop": "electron .",
     "install:desktop-deps": "node scripts/install-dependencies.js",
+    "prepare:win-tools": "node scripts/prepare-win-tools.js",
     "postinstall": "node scripts/install-dependencies.js",
+    "prebuild:win": "node scripts/prepare-win-tools.js",
+    "prebuild:desktop": "node scripts/prepare-win-tools.js",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:desktop": "electron-builder --mac --win"
@@ -59,7 +62,8 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh"
     }
   }
 }

@@ -72,8 +72,8 @@ final class AppState: ObservableObject {
     @Published var cookiesStatus = "Not uploaded"
     @Published var downloaderStatus = "Preparing bundled downloader tools..."
     @Published var updateStatus = "Not checked yet"
-    @Published var currentVersion = "1.2.2"
-    @Published var latestVersion = "1.2.2"
+    @Published var currentVersion = "1.2.3"
+    @Published var latestVersion = "1.2.3"
     @Published var customIntervalHours = 3
     @Published var syncTime = "09:00"
     @Published var selectedQuality: DownloadQuality = .hd1080
@@ -137,7 +137,7 @@ final class AppState: ObservableObject {
 
     func checkForUpdates() {
       updateStatus = "Checking GitHub release feed..."
-      latestVersion = "1.2.2"
+      latestVersion = "1.2.3"
       updateStatus = "You are on the latest native preview."
     }
 

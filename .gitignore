@@ -2,6 +2,7 @@ node_modules/
 .venv/
 release/
 dist/
+build/win-tools/
 
 downloads/
 data/
