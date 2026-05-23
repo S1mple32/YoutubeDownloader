@@ -83,6 +83,7 @@ struct ContentView: View {
                     SettingRow(label: "Current version", value: state.currentVersion)
                     SettingRow(label: "Latest release", value: state.latestVersion)
                     SettingRow(label: "Update status", value: state.updateStatus)
+                    SettingRow(label: "Downloader tools", value: state.downloaderStatus)
                     HStack(spacing: 10) {
                         Button("Check for updates") {
                             state.checkForUpdates()

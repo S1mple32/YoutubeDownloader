@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using YtMark1Native.Services;
 
 namespace YtMark1Native.Models;
 
-public sealed class BindableBase : INotifyPropertyChanged
+public class BindableBase : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -59,6 +60,7 @@ public sealed class MainViewModel : BindableBase
     private string _latestVersion = "1.2.0";
     private string _updateStatus = "Not checked yet";
     private string _cookiesStatus = "Bundled app storage only";
+    private string _downloaderStatus = "Preparing bundled downloader tools...";
     private bool _permissionConfirmed;
     private string _selectedQuality = "1080p";
     private string _selectedFormat = "Fast native";
@@ -120,6 +122,7 @@ public sealed class MainViewModel : BindableBase
     public string LatestVersion { get => _latestVersion; set => SetProperty(ref _latestVersion, value); }
     public string UpdateStatus { get => _updateStatus; set => SetProperty(ref _updateStatus, value); }
     public string CookiesStatus { get => _cookiesStatus; set => SetProperty(ref _cookiesStatus, value); }
+    public string DownloaderStatus { get => _downloaderStatus; set => SetProperty(ref _downloaderStatus, value); }
     public bool PermissionConfirmed { get => _permissionConfirmed; set => SetProperty(ref _permissionConfirmed, value); }
     public string SelectedQuality { get => _selectedQuality; set => SetProperty(ref _selectedQuality, value); }
     public string SelectedFormat { get => _selectedFormat; set => SetProperty(ref _selectedFormat, value); }
@@ -188,5 +191,17 @@ public sealed class MainViewModel : BindableBase
     {
         LatestVersion = "1.2.0";
         UpdateStatus = "Native rewrite scaffold is aligned with version 1.2.0.";
+    }
+
+    public async Task PrepareDownloaderAsync()
+    {
+        try
+        {
+            DownloaderStatus = await DownloaderBootstrap.PrepareToolsAsync();
+        }
+        catch (Exception error)
+        {
+            DownloaderStatus = $"Downloader setup failed: {error.Message}";
+        }
     }
 }

@@ -11,6 +11,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+        Loaded += MainWindow_Loaded;
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.PrepareDownloaderAsync();
     }
 
     private void QueueDownload_Click(object sender, RoutedEventArgs e)

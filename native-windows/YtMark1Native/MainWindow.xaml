@@ -98,6 +98,9 @@
             <TextBlock Text="Update status" FontSize="12" FontWeight="Bold" Foreground="#647187" />
             <TextBlock Text="{Binding UpdateStatus}" TextWrapping="Wrap" Margin="0,4,0,12" />
 
+            <TextBlock Text="Downloader tools" FontSize="12" FontWeight="Bold" Foreground="#647187" />
+            <TextBlock Text="{Binding DownloaderStatus}" TextWrapping="Wrap" Margin="0,4,0,12" />
+
             <WrapPanel Margin="0,0,0,14">
               <Button Content="Check for updates" Margin="0,0,8,8" Click="CheckUpdates_Click" />
               <Button Content="Clear queue" Margin="0,0,8,8" Click="ClearQueue_Click" />

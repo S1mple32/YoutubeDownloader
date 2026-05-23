@@ -7,6 +7,9 @@ struct YtMark1NativeApp: App {
     var body: some Scene {
         WindowGroup("YtMark1 Native") {
             ContentView(state: state)
+                .task {
+                    await state.prepareDownloaderTools()
+                }
         }
         .windowResizability(.contentSize)
 

@@ -70,9 +70,10 @@ final class AppState: ObservableObject {
     @Published var playlistName = ""
     @Published var downloadsFolder = "/Users/shared/Downloads/YtMark1"
     @Published var cookiesStatus = "Not uploaded"
+    @Published var downloaderStatus = "Preparing bundled downloader tools..."
     @Published var updateStatus = "Not checked yet"
-    @Published var currentVersion = "1.1.0"
-    @Published var latestVersion = "1.1.0"
+    @Published var currentVersion = "1.2.0"
+    @Published var latestVersion = "1.2.0"
     @Published var customIntervalHours = 3
     @Published var syncTime = "09:00"
     @Published var selectedQuality: DownloadQuality = .hd1080
@@ -136,7 +137,15 @@ final class AppState: ObservableObject {
 
     func checkForUpdates() {
       updateStatus = "Checking GitHub release feed..."
-      latestVersion = "1.1.0"
+      latestVersion = "1.2.0"
       updateStatus = "You are on the latest native preview."
+    }
+
+    func prepareDownloaderTools() async {
+      do {
+        downloaderStatus = try await DownloaderBootstrap.prepareTools()
+      } catch {
+        downloaderStatus = "Downloader setup failed: \(error.localizedDescription)"
+      }
     }
 }
