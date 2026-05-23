@@ -64,7 +64,7 @@ function download(url, destination) {
   return new Promise((resolve, reject) => {
     const request = https.get(url, {
       headers: {
-        "User-Agent": "YtMark1/1.2.4"
+        "User-Agent": "YtMark1/1.2.5"
       }
     }, (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
