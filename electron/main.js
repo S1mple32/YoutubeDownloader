@@ -11,13 +11,13 @@ async function createMainWindow() {
 
   try {
     const { installDependencies } = require("../scripts/install-dependencies");
-    installDependencies({ installRoot: userData, skipIfPresent: true });
+    await installDependencies({ installRoot: userData, skipIfPresent: true });
   } catch (error) {
     process.env.YTMARK1_RESOURCE_ROOT = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "..");
     dialog.showMessageBox({
       type: "warning",
       title: "Downloader dependencies were not installed",
-      message: "YtMark1 opened, but YouTube downloads may need Python 3 so yt-dlp and ffmpeg helpers can be installed.",
+      message: "YtMark1 opened, but downloader tools could not be prepared automatically.",
       detail: error.message
     });
   }

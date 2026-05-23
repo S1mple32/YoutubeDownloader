@@ -56,8 +56,8 @@ public sealed class MainViewModel : BindableBase
     private string _playlistUrl = "";
     private string _playlistName = "";
     private string _downloadsFolder = @"C:\YtMark1\Downloads";
-    private string _currentVersion = "1.2.1";
-    private string _latestVersion = "1.2.1";
+    private string _currentVersion = "1.2.2";
+    private string _latestVersion = "1.2.2";
     private string _updateStatus = "Not checked yet";
     private string _cookiesStatus = "Bundled app storage only";
     private string _downloaderStatus = "Preparing bundled downloader tools...";
@@ -189,8 +189,8 @@ public sealed class MainViewModel : BindableBase
 
     public void CheckUpdates()
     {
-        LatestVersion = "1.2.1";
-        UpdateStatus = "Native rewrite scaffold is aligned with version 1.2.1.";
+        LatestVersion = "1.2.2";
+        UpdateStatus = "Native rewrite scaffold is aligned with version 1.2.2.";
     }
 
     public async Task PrepareDownloaderAsync()
