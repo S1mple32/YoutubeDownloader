@@ -7,6 +7,8 @@ const { randomUUID } = require("crypto");
 const { spawn } = require("child_process");
 
 const startedAt = new Date();
+const packageInfo = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
+const appVersion = packageInfo.version || "0.0.0";
 const runtimeRoot = process.env.YTMARK1_HOME || __dirname;
 const publicDir = path.join(__dirname, "public");
 const defaultDownloadsDir = path.join(runtimeRoot, "downloads");
@@ -22,12 +24,15 @@ const localFfmpegDir = path.join(resourceRoot, ".venv");
 const localFfmpegBin = findLocalFfmpeg(localFfmpegDir);
 const downloaderBin = process.env.DOWNLOADER_BIN || (fs.existsSync(localDownloaderBin) ? localDownloaderBin : "yt-dlp");
 const ffmpegBin = process.env.FFMPEG_BIN || (fs.existsSync(localFfmpegBin) ? localFfmpegBin : null);
+const updateOwner = process.env.YTMARK1_UPDATE_OWNER || "S1mple32";
+const updateRepo = process.env.YTMARK1_UPDATE_REPO || "YoutubeDownloader";
 
 const jobs = [];
 let playlists = [];
 let downloadHistory = [];
 let settings = {
-  downloadsDir: defaultDownloadsDir
+  downloadsDir: defaultDownloadsDir,
+  lastUpdateCheck: null
 };
 fs.mkdirSync(defaultDownloadsDir, { recursive: true });
 fs.mkdirSync(dataDir, { recursive: true });
@@ -105,6 +110,38 @@ function saveState() {
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
 }
 
+function fetchJson(url, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": `YtMark1/${appVersion}`,
+        ...headers
+      }
+    }, (response) => {
+      let body = "";
+      response.on("data", (chunk) => {
+        body += chunk.toString();
+      });
+
+      response.on("end", () => {
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(`Update check failed with HTTP ${response.statusCode}`));
+          return;
+        }
+
+        try {
+          resolve(body ? JSON.parse(body) : {});
+        } catch (error) {
+          reject(new Error("Update server returned invalid JSON"));
+        }
+      });
+    });
+
+    request.on("error", (error) => reject(error));
+  });
+}
+
 loadState();
 
 const mimeTypes = {
@@ -157,6 +194,7 @@ function statusPayload() {
     status: "ok",
     uptimeSeconds: Math.floor(process.uptime()),
     startedAt: startedAt.toISOString(),
+    version: appVersion,
     environment: process.env.NODE_ENV || "development",
     hostname: os.hostname(),
     queuedJobs: jobs.length,
@@ -164,6 +202,29 @@ function statusPayload() {
     cookiesConfigured: fs.existsSync(cookiesPath),
     downloadsDir: getDownloadsDir()
   };
+}
+
+function parseVersion(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^v/i, "")
+    .split(".")
+    .map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function compareVersions(left, right) {
+  const leftParts = parseVersion(left);
+  const rightParts = parseVersion(right);
+  const length = Math.max(leftParts.length, rightParts.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+
+  return 0;
 }
 
 function sourceFromUrl(url) {
@@ -354,6 +415,64 @@ function saveDownloadSettings(downloadsDirValue) {
 
   return {
     downloadsDir: getDownloadsDir()
+  };
+}
+
+function updateStatusPayload() {
+  const cached = settings.lastUpdateCheck;
+  return {
+    currentVersion: appVersion,
+    repository: `https://github.com/${updateOwner}/${updateRepo}`,
+    ...(cached || {
+      checkedAt: null,
+      latestVersion: null,
+      hasUpdate: false,
+      releaseUrl: null,
+      error: null
+    })
+  };
+}
+
+async function checkForUpdates() {
+  const release = await fetchJson(`https://api.github.com/repos/${updateOwner}/${updateRepo}/releases/latest`);
+  const latestVersion = String(release.tag_name || release.name || "").replace(/^v/i, "") || appVersion;
+  const payload = {
+    checkedAt: new Date().toISOString(),
+    latestVersion,
+    hasUpdate: compareVersions(latestVersion, appVersion) > 0,
+    releaseUrl: release.html_url || `https://github.com/${updateOwner}/${updateRepo}/releases`,
+    error: null
+  };
+
+  settings.lastUpdateCheck = payload;
+  saveState();
+  return updateStatusPayload();
+}
+
+function isActiveJob(job) {
+  return job.status === "queued" || job.status === "downloading" || job.status === "merging";
+}
+
+function clearQueue() {
+  const activeJobs = jobs.filter(isActiveJob);
+  const removed = jobs.length - activeJobs.length;
+  jobs.length = 0;
+  jobs.push(...activeJobs);
+
+  return {
+    removed,
+    remaining: jobs.length,
+    keptActive: activeJobs.length
+  };
+}
+
+function clearHistory() {
+  const removed = downloadHistory.length;
+  downloadHistory = [];
+  saveState();
+  return {
+    removed,
+    remaining: 0
   };
 }
 
@@ -651,6 +770,11 @@ async function handleApi(req, res) {
     return true;
   }
 
+  if (req.url === "/api/jobs" && req.method === "DELETE") {
+    sendJson(res, 200, clearQueue());
+    return true;
+  }
+
   if (req.url === "/api/playlists" && req.method === "GET") {
     sendJson(res, 200, { playlists });
     return true;
@@ -709,6 +833,34 @@ async function handleApi(req, res) {
       sendJson(res, 200, saveDownloadSettings(body.downloadsDir));
     } catch (error) {
       sendJson(res, 400, { error: error.message });
+    }
+
+    return true;
+  }
+
+  if (req.url === "/api/history" && req.method === "DELETE") {
+    sendJson(res, 200, clearHistory());
+    return true;
+  }
+
+  if (req.url === "/api/settings/updates" && req.method === "GET") {
+    sendJson(res, 200, updateStatusPayload());
+    return true;
+  }
+
+  if (req.url === "/api/settings/updates" && req.method === "POST") {
+    try {
+      sendJson(res, 200, await checkForUpdates());
+    } catch (error) {
+      settings.lastUpdateCheck = {
+        checkedAt: new Date().toISOString(),
+        latestVersion: null,
+        hasUpdate: false,
+        releaseUrl: `https://github.com/${updateOwner}/${updateRepo}/releases`,
+        error: error.message
+      };
+      saveState();
+      sendJson(res, 502, { error: error.message, ...updateStatusPayload() });
     }
 
     return true;

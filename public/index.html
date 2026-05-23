@@ -131,7 +131,9 @@
               <p class="eyebrow">Queue</p>
               <h2>Download jobs</h2>
             </div>
+            <button class="button button--ghost button--compact" id="clear-queue-button" type="button">Clear queue</button>
           </div>
+          <p class="panel-message" id="queue-message" role="status"></p>
           <div class="empty" id="jobs-empty">No downloads yet.</div>
           <div class="job-list" id="job-list"></div>
         </article>
@@ -154,8 +156,12 @@
             <p class="eyebrow">History</p>
             <h2>Downloaded files</h2>
           </div>
-          <span class="metric" id="history-count">0 saved</span>
+          <div class="panel-actions">
+            <span class="metric" id="history-count">0 saved</span>
+            <button class="button button--ghost button--compact" id="clear-history-button" type="button">Clear history</button>
+          </div>
         </div>
+        <p class="panel-message" id="history-message" role="status"></p>
         <div class="empty" id="history-empty">No completed downloads yet.</div>
         <div class="history-list" id="history-list"></div>
       </section>
@@ -167,12 +173,36 @@
         <div class="panel__heading">
           <div>
             <p class="eyebrow">Settings</p>
-            <h2 id="settings-title">YouTube cookies</h2>
+            <h2 id="settings-title">App settings</h2>
           </div>
           <button class="icon-button" type="button" data-close-settings aria-label="Close settings" title="Close">
             <span aria-hidden="true">×</span>
           </button>
         </div>
+
+        <div class="settings-status settings-status--stack">
+          <span>Current version</span>
+          <strong id="update-current-version">Checking...</strong>
+        </div>
+
+        <div class="settings-status settings-status--stack">
+          <span>Latest release</span>
+          <strong id="update-latest-version">Not checked yet</strong>
+        </div>
+
+        <div class="settings-status settings-status--stack">
+          <span>Update status</span>
+          <strong id="update-status-message">Open Settings to check for updates.</strong>
+        </div>
+
+        <div class="settings-actions">
+          <button class="button" id="check-updates-button" type="button">Check for updates</button>
+          <a class="button button--ghost" id="update-release-link" href="https://github.com/S1mple32/YoutubeDownloader/releases" target="_blank" rel="noreferrer">Open release page</a>
+        </div>
+
+        <p class="form-message" id="updates-message" role="status"></p>
+
+        <hr class="settings-divider">
 
         <p class="settings-note">
           Upload a Netscape-format cookies.txt exported from your signed-in browser. Store this only on your own machine.

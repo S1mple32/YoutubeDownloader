@@ -9,6 +9,8 @@ const historyEmpty = document.querySelector("#history-empty");
 const queueCount = document.querySelector("#queue-count");
 const playlistCount = document.querySelector("#playlist-count");
 const historyCount = document.querySelector("#history-count");
+const queueMessage = document.querySelector("#queue-message");
+const historyMessage = document.querySelector("#history-message");
 const downloadMessage = document.querySelector("#download-message");
 const playlistMessage = document.querySelector("#playlist-message");
 const serverState = document.querySelector("#server-state");
@@ -22,6 +24,14 @@ const downloadsForm = document.querySelector("#downloads-form");
 const downloadsDir = document.querySelector("#downloads-dir");
 const downloadsMessage = document.querySelector("#downloads-message");
 const downloadsStatus = document.querySelector("#downloads-status");
+const clearQueueButton = document.querySelector("#clear-queue-button");
+const clearHistoryButton = document.querySelector("#clear-history-button");
+const checkUpdatesButton = document.querySelector("#check-updates-button");
+const updateCurrentVersion = document.querySelector("#update-current-version");
+const updateLatestVersion = document.querySelector("#update-latest-version");
+const updateStatusMessage = document.querySelector("#update-status-message");
+const updateReleaseLink = document.querySelector("#update-release-link");
+const updatesMessage = document.querySelector("#updates-message");
 const syncInterval = document.querySelector("#sync-interval");
 const scheduleExtra = document.querySelector("#schedule-extra");
 const customIntervalField = document.querySelector("#custom-interval-field");
@@ -67,6 +77,7 @@ function openSettings() {
   settingsModal.hidden = false;
   loadCookieStatus();
   loadDownloadSettings();
+  loadUpdateStatus();
 }
 
 function closeSettings() {
@@ -175,12 +186,36 @@ async function refresh() {
     serverState.textContent = statusData.status === "ok" ? "Online" : "Needs attention";
     cookiesStatus.textContent = statusData.cookiesConfigured ? "Cookies uploaded" : "No cookies uploaded";
     downloadsStatus.textContent = statusData.downloadsDir || "Not set";
+    updateCurrentVersion.textContent = statusData.version || "Unknown";
     renderJobs(jobData.jobs);
     renderPlaylists(playlistData.playlists);
     renderHistory(historyData.history);
   } catch (error) {
     serverState.textContent = "Offline";
   }
+}
+
+function renderUpdateStatus(data) {
+  updateCurrentVersion.textContent = data.currentVersion || "Unknown";
+  updateLatestVersion.textContent = data.latestVersion || "Not checked yet";
+  updateReleaseLink.href = data.releaseUrl || "https://github.com/S1mple32/YoutubeDownloader/releases";
+
+  if (data.error) {
+    updateStatusMessage.textContent = data.error;
+    return;
+  }
+
+  if (!data.checkedAt) {
+    updateStatusMessage.textContent = "Not checked yet.";
+    return;
+  }
+
+  if (data.hasUpdate) {
+    updateStatusMessage.textContent = `Update available: ${data.latestVersion}`;
+    return;
+  }
+
+  updateStatusMessage.textContent = `You are up to date on ${formatDate(data.checkedAt)}.`;
 }
 
 downloadForm.addEventListener("submit", async (event) => {
@@ -231,6 +266,15 @@ async function loadDownloadSettings() {
   }
 }
 
+async function loadUpdateStatus() {
+  try {
+    const data = await request("/api/settings/updates");
+    renderUpdateStatus(data);
+  } catch (error) {
+    updateStatusMessage.textContent = "Could not check update status";
+  }
+}
+
 cookiesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -272,6 +316,56 @@ downloadsForm.addEventListener("submit", async (event) => {
     downloadsMessage.textContent = "Download folder saved.";
   } catch (error) {
     downloadsMessage.textContent = error.message;
+  }
+});
+
+checkUpdatesButton.addEventListener("click", async () => {
+  updatesMessage.textContent = "Checking for updates...";
+
+  try {
+    const data = await request("/api/settings/updates", {
+      method: "POST"
+    });
+
+    renderUpdateStatus(data);
+    updatesMessage.textContent = data.hasUpdate
+      ? `Version ${data.latestVersion} is ready.`
+      : "You already have the latest version.";
+  } catch (error) {
+    updatesMessage.textContent = error.message;
+    await loadUpdateStatus();
+  }
+});
+
+clearQueueButton.addEventListener("click", async () => {
+  queueMessage.textContent = "Clearing queue...";
+
+  try {
+    const data = await request("/api/jobs", {
+      method: "DELETE"
+    });
+
+    queueMessage.textContent = data.keptActive > 0
+      ? `Removed ${data.removed} item(s). ${data.keptActive} active download(s) stayed in the queue.`
+      : `Removed ${data.removed} item(s) from the queue.`;
+    await refresh();
+  } catch (error) {
+    queueMessage.textContent = error.message;
+  }
+});
+
+clearHistoryButton.addEventListener("click", async () => {
+  historyMessage.textContent = "Clearing history...";
+
+  try {
+    const data = await request("/api/history", {
+      method: "DELETE"
+    });
+
+    historyMessage.textContent = `Removed ${data.removed} history item(s).`;
+    await refresh();
+  } catch (error) {
+    historyMessage.textContent = error.message;
   }
 });
 
