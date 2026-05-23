@@ -4,22 +4,36 @@ const path = require("path");
 let appServer;
 let mainWindow;
 
+function downloaderToolsExist(root) {
+  const toolsDir = path.join(root, "tools");
+  const downloader = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
+  const ffmpeg = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  return require("fs").existsSync(path.join(toolsDir, downloader)) &&
+    require("fs").existsSync(path.join(toolsDir, ffmpeg));
+}
+
 async function createMainWindow() {
   const userData = app.getPath("userData");
+  const bundledRoot = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "..");
   process.env.YTMARK1_HOME = userData;
-  process.env.YTMARK1_RESOURCE_ROOT = userData;
+  process.env.YTMARK1_RESOURCE_ROOT = downloaderToolsExist(userData) ? userData : bundledRoot;
 
-  try {
-    const { installDependencies } = require("../scripts/install-dependencies");
-    await installDependencies({ installRoot: userData, skipIfPresent: true });
-  } catch (error) {
-    process.env.YTMARK1_RESOURCE_ROOT = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "..");
-    dialog.showMessageBox({
-      type: "warning",
-      title: "Downloader dependencies were not installed",
-      message: "YtMark1 opened, but downloader tools could not be prepared automatically.",
-      detail: error.message
-    });
+  if (!downloaderToolsExist(process.env.YTMARK1_RESOURCE_ROOT)) {
+    try {
+      const { installDependencies } = require("../scripts/install-dependencies");
+      await installDependencies({ installRoot: userData, skipIfPresent: true });
+      process.env.YTMARK1_RESOURCE_ROOT = userData;
+    } catch (error) {
+      process.env.YTMARK1_RESOURCE_ROOT = bundledRoot;
+      if (!downloaderToolsExist(bundledRoot)) {
+        dialog.showMessageBox({
+          type: "warning",
+          title: "Downloader dependencies were not installed",
+          message: "YtMark1 opened, but downloader tools could not be prepared automatically.",
+          detail: error.message
+        });
+      }
+    }
   }
 
   const { startServer } = require("../server");

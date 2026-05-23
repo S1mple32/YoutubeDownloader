@@ -48,12 +48,15 @@
     ${If} $InstallDownloaderTools == "1"
       InitPluginsDir
       CreateDirectory "$APPDATA\YtMark1\tools"
+      CreateDirectory "$INSTDIR\resources\tools"
       File /oname=$PLUGINSDIR\yt-dlp.exe "${PROJECT_DIR}\build\win-tools\yt-dlp.exe"
       File /oname=$PLUGINSDIR\ffmpeg.exe "${PROJECT_DIR}\build\win-tools\ffmpeg.exe"
 
       DetailPrint "Installing yt-dlp and ffmpeg..."
       CopyFiles /SILENT "$PLUGINSDIR\yt-dlp.exe" "$APPDATA\YtMark1\tools\yt-dlp.exe"
       CopyFiles /SILENT "$PLUGINSDIR\ffmpeg.exe" "$APPDATA\YtMark1\tools\ffmpeg.exe"
+      CopyFiles /SILENT "$PLUGINSDIR\yt-dlp.exe" "$INSTDIR\resources\tools\yt-dlp.exe"
+      CopyFiles /SILENT "$PLUGINSDIR\ffmpeg.exe" "$INSTDIR\resources\tools\ffmpeg.exe"
 
       ${If} ${Errors}
         MessageBox MB_ICONEXCLAMATION|MB_OK "YtMark1 was installed, but setup could not install yt-dlp and ffmpeg. Open YtMark1 while connected to the internet and it will try again."
