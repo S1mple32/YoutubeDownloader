@@ -53,6 +53,7 @@
       File /oname=$PLUGINSDIR\ffmpeg.exe "${PROJECT_DIR}\build\win-tools\ffmpeg.exe"
 
       DetailPrint "Installing yt-dlp and ffmpeg..."
+      ClearErrors
       CopyFiles /SILENT "$PLUGINSDIR\yt-dlp.exe" "$APPDATA\YtMark1\tools\yt-dlp.exe"
       CopyFiles /SILENT "$PLUGINSDIR\ffmpeg.exe" "$APPDATA\YtMark1\tools\ffmpeg.exe"
       CopyFiles /SILENT "$PLUGINSDIR\yt-dlp.exe" "$INSTDIR\resources\tools\yt-dlp.exe"

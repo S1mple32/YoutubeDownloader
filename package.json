@@ -1,6 +1,6 @@
 {
   "name": "ytmark1",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "A desktop and Docker video download manager.",
   "author": "YtMark1",
   "main": "electron/main.js",
