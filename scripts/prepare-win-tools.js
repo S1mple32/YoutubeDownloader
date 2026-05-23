@@ -92,7 +92,7 @@ async function prepareWinTools() {
           `Expand-Archive -LiteralPath '${archivePath.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}' -Force`
         ]);
       } else {
-        run("/usr/bin/ditto", ["-x", "-k", archivePath, extractDir]);
+        run("unzip", ["-o", archivePath, "-d", extractDir]);
       }
 
       const extractedFfmpeg = findFile(extractDir, "ffmpeg.exe");

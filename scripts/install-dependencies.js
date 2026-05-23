@@ -204,12 +204,21 @@ async function installDependencies(options = {}) {
     run(venvPythonPath, ["-m", "pip", "install", "--upgrade", "pip"]);
     run(venvPythonPath, ["-m", "pip", "install", "--upgrade", "yt-dlp", "imageio-ffmpeg"]);
 
+    let ffmpegPath = null;
+    const ffmpegResult = spawnSync(venvPythonPath, [
+      "-c",
+      "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
+    ], { encoding: "utf8" });
+    if (ffmpegResult.status === 0 && ffmpegResult.stdout.trim()) {
+      ffmpegPath = ffmpegResult.stdout.trim();
+    }
+
     return {
       managed: false,
       skipped: false,
       venvDir,
       downloaderPath: downloaderBinary(venvDir),
-      ffmpegPath: null,
+      ffmpegPath,
       fallbackReason: managedError.message
     };
   }
