@@ -5,7 +5,7 @@ A Docker-ready and desktop-ready video download and playlist sync app.
 
 This starter app includes:
 
-- Allows cache cookies from Youtube to be directly uploaded from the WEB UI (i personally use "Get cookies.txt LOCALLY" addon i found it quite easy to use
+- Allows cache cookies from Youtube to be directly uploaded from the WEB UI (i personally use "Get cookies.txt LOCALLY" addon i found it quite easy to use you upload directly from your own computer without the need to go in to the server if using on docker)
 - Video URL queue with quality options up to 4K / 2160p
 - Direct media URL downloads saved into `downloads/`
 - YouTube downloads through `yt-dlp` for videos you own or have permission to save
