@@ -354,10 +354,6 @@ function argsForDownloader(job) {
     "--restrict-filenames",
     "--concurrent-fragments",
     "8",
-    "--js-runtimes",
-    `node:${process.execPath}`,
-    "--remote-components",
-    "ejs:github",
     "-o",
     outputTemplate
   ];
