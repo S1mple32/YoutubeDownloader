@@ -57,6 +57,14 @@ select {
   gap: 14px;
 }
 
+.brand-logo {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(15, 118, 110, 0.22);
+}
+
 .icon-button {
   display: inline-grid;
   width: 42px;
