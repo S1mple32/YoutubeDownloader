@@ -522,7 +522,7 @@ function runDownloader(job) {
   job.updatedAt = new Date().toISOString();
 
   const child = spawn(downloaderBin, argsForDownloader(job), {
-    cwd: __dirname,
+    cwd: runtimeRoot,
     stdio: ["ignore", "pipe", "pipe"]
   });
 
