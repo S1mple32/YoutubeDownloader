@@ -369,14 +369,14 @@ function argsForDownloader(job) {
   if (job.format === "mp3" || job.quality === "audio") {
     args.push("-x", "--audio-format", "mp3");
   } else if (job.quality === "best") {
-    args.push("-f", "bv*+ba/best");
+    args.push("-f", "bv*+ba/b/best");
   } else if (job.quality === "2160p-only") {
-    args.push("-f", "bv*[height=2160]+ba/b[height=2160]", "-S", "res:2160");
+    args.push("-f", "bv*[height=2160]+ba/b[height=2160]/bv*+ba/b/best", "-S", "res:2160");
   } else {
     const height = Number.parseInt(job.quality, 10);
     const formatSelector = Number.isFinite(height)
-      ? `bv*[height<=${height}]+ba/b[height<=${height}]/bv*+ba/best`
-      : "bv*+ba/best";
+      ? `bv*[height<=${height}]+ba/b[height<=${height}]/bv*+ba/b/best`
+      : "bv*+ba/b/best";
     args.push("-f", formatSelector, "-S", Number.isFinite(height) ? `res:${height}` : "res");
   }
 
