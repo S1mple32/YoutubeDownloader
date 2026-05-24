@@ -1,12 +1,7 @@
 node_modules/
-.venv/
-release/
-dist/
-build/win-tools/
-
 downloads/
 data/
 secrets/
-
+.venv/
 .DS_Store
-*.log
+*.blockmap

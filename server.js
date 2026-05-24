@@ -16,21 +16,8 @@ const dataDir = path.join(runtimeRoot, "data");
 const statePath = path.join(dataDir, "app-state.json");
 const secretsDir = path.join(runtimeRoot, "secrets");
 const cookiesPath = path.join(secretsDir, "youtube-cookies.txt");
-const resourceRoot = process.env.YTMARK1_RESOURCE_ROOT || __dirname;
-const managedToolsDir = path.join(resourceRoot, "tools");
-const managedDownloaderBin = process.platform === "win32"
-  ? path.join(managedToolsDir, "yt-dlp.exe")
-  : path.join(managedToolsDir, "yt-dlp");
-const managedFfmpegBin = process.platform === "win32"
-  ? path.join(managedToolsDir, "ffmpeg.exe")
-  : path.join(managedToolsDir, "ffmpeg");
-const venvDownloaderBin = process.platform === "win32"
-  ? path.join(resourceRoot, ".venv", "Scripts", "yt-dlp.exe")
-  : path.join(resourceRoot, ".venv", "bin", "yt-dlp");
-const localFfmpegDir = path.join(resourceRoot, ".venv");
-const localFfmpegBin = findLocalFfmpeg(localFfmpegDir);
-const downloaderBin = process.env.DOWNLOADER_BIN || resolveFirstExisting([managedDownloaderBin, venvDownloaderBin]) || "yt-dlp";
-const ffmpegBin = process.env.FFMPEG_BIN || resolveFirstExisting([managedFfmpegBin, localFfmpegBin]) || null;
+const downloaderBin = process.env.DOWNLOADER_BIN || "yt-dlp";
+const ffmpegBin = process.env.FFMPEG_BIN || null;
 const updateOwner = process.env.YTMARK1_UPDATE_OWNER || "S1mple32";
 const updateRepo = process.env.YTMARK1_UPDATE_REPO || "YoutubeDownloader";
 
@@ -52,33 +39,6 @@ function normalizeDownloadDir(value) {
 
   const trimmed = value.trim();
   return path.normalize(path.isAbsolute(trimmed) ? trimmed : path.resolve(runtimeRoot, trimmed));
-}
-
-function resolveFirstExisting(paths) {
-  return paths.find((candidate) => candidate && fs.existsSync(candidate)) || null;
-}
-
-function findLocalFfmpeg(searchRoot) {
-  if (!fs.existsSync(searchRoot)) {
-    return null;
-  }
-
-  const stack = [searchRoot];
-  while (stack.length) {
-    const current = stack.pop();
-    const entries = fs.readdirSync(current, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const entryPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(entryPath);
-      } else if (/^ffmpeg(?:\.exe)?(?:-.+)?$/i.test(entry.name)) {
-        return entryPath;
-      }
-    }
-  }
-
-  return null;
 }
 
 function getDownloadsDir() {
