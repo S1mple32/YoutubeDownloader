@@ -187,6 +187,9 @@ function renderPlaylists(playlists) {
           <button class="button button--ghost button--compact" data-resync="${escapeHtml(playlist.id)}" ${isSyncing ? "disabled" : ""}>
             ${isSyncing ? "Syncing…" : "↻ Sync"}
           </button>
+          <button class="button button--ghost button--compact button--danger" data-delete-playlist="${escapeHtml(playlist.id)}" title="Remove playlist">
+            ✕
+          </button>
         </div>
       </div>
       ${playlist.lastError ? `<p class="playlist__error">${escapeHtml(playlist.lastError)}</p>` : ""}
@@ -213,6 +216,20 @@ function renderPlaylists(playlists) {
       } catch (error) {
         btn.disabled = false;
         btn.textContent = "↻ Sync";
+      }
+    });
+  });
+
+  // wire up delete buttons
+  document.querySelectorAll("[data-delete-playlist]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.deletePlaylist;
+      btn.disabled = true;
+      try {
+        await request(`/api/playlists/${id}`, { method: "DELETE" });
+        await refresh();
+      } catch (error) {
+        btn.disabled = false;
       }
     });
   });

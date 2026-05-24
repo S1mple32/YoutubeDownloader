@@ -889,6 +889,21 @@ async function handleApi(req, res) {
     return true;
   }
 
+  // Delete a playlist: DELETE /api/playlists/:id
+  const deleteMatch = req.url.match(/^\/api\/playlists\/([^/]+)$/) && req.method === "DELETE";
+  if (deleteMatch) {
+    const id = req.url.split("/")[3];
+    const index = playlists.findIndex((p) => p.id === id);
+    if (index === -1) {
+      sendJson(res, 404, { error: "Playlist not found" });
+      return true;
+    }
+    playlists.splice(index, 1);
+    saveState();
+    sendJson(res, 200, { removed: 1 });
+    return true;
+  }
+
   // Manual re-sync of an existing playlist: POST /api/playlists/:id/sync
   const resyncMatch = req.url.match(/^\/api\/playlists\/([^/]+)\/sync$/) && req.method === "POST";
   if (resyncMatch) {
