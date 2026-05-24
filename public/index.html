@@ -13,6 +13,9 @@
           <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">
             <span aria-hidden="true">⚙</span>
           </button>
+          <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <span aria-hidden="true" id="theme-icon">☾</span>
+          </button>
           <img class="brand-logo" src="/logo.svg" alt="YtMark1 logo">
           <div>
             <p class="eyebrow">Docker media utility</p>
@@ -168,77 +171,92 @@
       </section>
     </main>
 
+    <!-- Settings drawer -->
     <div class="modal" id="settings-modal" hidden>
       <div class="modal__scrim" data-close-settings></div>
-      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <div class="panel__heading">
-          <div>
-            <p class="eyebrow">Settings</p>
-            <h2 id="settings-title">App settings</h2>
+      <aside class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+
+        <!-- Drawer header -->
+        <div class="sd-header">
+          <div class="sd-title">
+            <span class="sd-title__icon">⚙</span>
+            <h2 id="settings-title">Settings</h2>
           </div>
-          <button class="icon-button" type="button" data-close-settings aria-label="Close settings" title="Close">
-            <span aria-hidden="true">×</span>
+          <button class="icon-button" type="button" data-close-settings aria-label="Close settings">×</button>
+        </div>
+
+        <!-- Tab bar -->
+        <nav class="sd-tabs" role="tablist">
+          <button class="sd-tab sd-tab--active" role="tab" data-tab="updates" aria-selected="true">
+            <span>🔄</span> Updates
           </button>
+          <button class="sd-tab" role="tab" data-tab="cookies" aria-selected="false">
+            <span>🍪</span> Cookies
+          </button>
+          <button class="sd-tab" role="tab" data-tab="storage" aria-selected="false">
+            <span>📁</span> Storage
+          </button>
+        </nav>
+
+        <!-- Updates tab -->
+        <div class="sd-pane" id="tab-updates" role="tabpanel">
+          <div class="sd-rows">
+            <div class="sd-row">
+              <span class="sd-row__label">Installed</span>
+              <strong class="sd-row__value" id="update-current-version">—</strong>
+            </div>
+            <div class="sd-row">
+              <span class="sd-row__label">Latest</span>
+              <strong class="sd-row__value" id="update-latest-version">—</strong>
+            </div>
+            <div class="sd-row sd-row--status">
+              <span class="sd-status-dot" id="update-dot"></span>
+              <span class="sd-row__value" id="update-status-message">Not checked yet</span>
+            </div>
+          </div>
+          <div class="sd-actions">
+            <button class="sd-btn sd-btn--primary" id="check-updates-button" type="button">Check now</button>
+            <a class="sd-btn" id="update-release-link" href="https://github.com/S1mple32/YoutubeDownloader/releases" target="_blank" rel="noreferrer">Releases ↗</a>
+          </div>
+          <p class="sd-message" id="updates-message" role="status"></p>
         </div>
 
-        <div class="settings-status settings-status--stack">
-          <span>Current version</span>
-          <strong id="update-current-version">Checking...</strong>
+        <!-- Cookies tab -->
+        <div class="sd-pane" id="tab-cookies" role="tabpanel" hidden>
+          <div class="sd-rows">
+            <div class="sd-row sd-row--status">
+              <span class="sd-status-dot" id="cookies-dot"></span>
+              <span class="sd-row__value" id="cookies-status">Checking…</span>
+            </div>
+          </div>
+          <p class="sd-note">Upload a Netscape-format cookies.txt from your signed-in browser to bypass rate limits.</p>
+          <form id="cookies-form" class="sd-file-row">
+            <label class="sd-file-label" for="cookies-file">
+              <span class="sd-file-label__icon">📄</span>
+              <span id="cookies-file-name">Choose cookies.txt</span>
+            </label>
+            <input id="cookies-file" type="file" accept=".txt,text/plain" class="sr-only">
+            <button class="sd-btn sd-btn--primary" type="submit">Upload</button>
+          </form>
+          <p class="sd-message" id="cookies-message" role="status"></p>
         </div>
 
-        <div class="settings-status settings-status--stack">
-          <span>Latest release</span>
-          <strong id="update-latest-version">Not checked yet</strong>
+        <!-- Storage tab -->
+        <div class="sd-pane" id="tab-storage" role="tabpanel" hidden>
+          <div class="sd-rows">
+            <div class="sd-row sd-row--col">
+              <span class="sd-row__label">Active folder</span>
+              <code class="sd-row__value sd-row__value--code" id="downloads-status">—</code>
+            </div>
+          </div>
+          <form id="downloads-form" class="sd-inline-form">
+            <input id="downloads-dir" type="text" placeholder="/app/downloads" class="sd-input">
+            <button class="sd-btn sd-btn--primary" type="submit">Save</button>
+          </form>
+          <p class="sd-message" id="downloads-message" role="status"></p>
         </div>
 
-        <div class="settings-status settings-status--stack">
-          <span>Update status</span>
-          <strong id="update-status-message">Open Settings to check for updates.</strong>
-        </div>
-
-        <div class="settings-actions">
-          <button class="button" id="check-updates-button" type="button">Check for updates</button>
-          <a class="button button--ghost" id="update-release-link" href="https://github.com/S1mple32/YoutubeDownloader/releases" target="_blank" rel="noreferrer">Open release page</a>
-        </div>
-
-        <p class="form-message" id="updates-message" role="status"></p>
-
-        <hr class="settings-divider">
-
-        <p class="settings-note">
-          Upload a Netscape-format cookies.txt exported from your signed-in browser. Store this only on your own machine.
-        </p>
-
-        <form id="cookies-form">
-          <label class="field">
-            <span>Cookies file</span>
-            <input id="cookies-file" type="file" accept=".txt,text/plain">
-          </label>
-          <button class="button button--primary" type="submit">Upload cookies</button>
-          <p class="form-message" id="cookies-message" role="status"></p>
-        </form>
-
-        <div class="settings-status">
-          <span>Current status</span>
-          <strong id="cookies-status">Checking...</strong>
-        </div>
-
-        <hr class="settings-divider">
-
-        <form id="downloads-form">
-          <label class="field">
-            <span>Download folder</span>
-            <input id="downloads-dir" type="text" placeholder="/app/downloads">
-          </label>
-          <button class="button" type="submit">Save folder</button>
-          <p class="form-message" id="downloads-message" role="status"></p>
-        </form>
-
-        <div class="settings-status">
-          <span>Active folder</span>
-          <strong id="downloads-status">Checking...</strong>
-        </div>
-      </section>
+      </aside>
     </div>
 
     <script src="/script.js"></script>
