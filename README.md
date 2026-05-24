@@ -1,6 +1,11 @@
 # YtMark1
 
 A Docker-based video download and playlist sync manager with a clean web UI.
+
+## Important
+
+YouTube links run through `yt-dlp`, so you have to download this before u can use it.
+
 <img width="1332" height="829" alt="Screenshot 2026-05-24 at 4 21 40 AM" src="https://github.com/user-attachments/assets/145f1c7d-555d-4004-81bb-0bc0032553f6" />
 
 ![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen)
@@ -98,7 +103,3 @@ curl http://localhost:3002/api/history
 | `DOWNLOADER_BIN` | `yt-dlp` | Path to yt-dlp binary |
 | `FFMPEG_BIN` | *(auto)* | Path to ffmpeg binary |
 | `PORT` | `3000` | Port the server listens on |
-
-## Important
-
-Download or sync only media you own, created, licensed, or have explicit permission to save. YouTube links run through `yt-dlp` — use this only for videos you have the right to download.
