@@ -1,8 +1,10 @@
 # YtMark1
 
 A Docker-based video download and playlist sync manager with a clean web UI.
+<img width="1332" height="829" alt="Screenshot 2026-05-24 at 4 21 40 AM" src="https://github.com/user-attachments/assets/145f1c7d-555d-4004-81bb-0bc0032553f6" />
 
 ![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen)
+<img width="1512" height="852" alt="Screenshot 2026-05-24 at 4 21 49 AM" src="https://github.com/user-attachments/assets/4d0691fb-09ac-40ad-b2ef-34be06d7b5cf" />
 
 ## Features
 
