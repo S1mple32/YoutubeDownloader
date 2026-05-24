@@ -2,9 +2,8 @@ FROM node:20-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates ffmpeg curl \
-  && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
-  && chmod a+rx /usr/local/bin/yt-dlp
+RUN apk add --no-cache ca-certificates ffmpeg python3 py3-pip \
+  && pip3 install --no-cache-dir --break-system-packages yt-dlp
 
 COPY package.json ./
 COPY server.js ./
