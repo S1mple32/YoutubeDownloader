@@ -3,7 +3,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 RUN apk add --no-cache ca-certificates ffmpeg curl \
-  && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+  && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
   && chmod a+rx /usr/local/bin/yt-dlp
 
 COPY package.json ./
