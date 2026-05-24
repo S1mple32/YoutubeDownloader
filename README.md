@@ -2,29 +2,26 @@
 
 A Docker-based video download and playlist sync manager with a clean web UI.
 
-## Important
+![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen) ![Version](https://img.shields.io/badge/version-1.3.4-teal)
 
-YouTube links run through `yt-dlp`, so you have to download this before u can use it.
-
-<img width="1332" height="829" alt="Screenshot 2026-05-24 at 4 21 40 AM" src="https://github.com/user-attachments/assets/145f1c7d-555d-4004-81bb-0bc0032553f6" />
-
-![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen)
-<img width="1512" height="852" alt="Screenshot 2026-05-24 at 4 21 49 AM" src="https://github.com/user-attachments/assets/4d0691fb-09ac-40ad-b2ef-34be06d7b5cf" />
+<img width="1332" height="829" alt="YtMark1 light mode" src="https://github.com/user-attachments/assets/145f1c7d-555d-4004-81bb-0bc0032553f6" />
+<img width="1512" height="852" alt="YtMark1 dark mode" src="https://github.com/user-attachments/assets/4d0691fb-09ac-40ad-b2ef-34be06d7b5cf" />
 
 ## Features
 
-- **Web UI** — download queue, playlist sync, history, and settings all in the browser
-- **Dark mode** — toggle between light and dark, respects your OS preference, persists across reloads
-- **YouTube support** — downloads via `yt-dlp` with cookie-based auth to bypass rate limits
+- **Dark mode** — toggle (☾/☀) in the topbar, respects OS preference, persists across reloads
+- **Download queue** — paste any YouTube URL, pick quality and format, add to queue
 - **Quality options** — Best, 4K/2160p, 1080p, 720p, Audio only
 - **Format options** — Fast native, MP4, WebM, MP3
 - **Concurrent fragments** — faster downloads with parallel chunk fetching
-- **Playlist sync** — schedule playlists to sync every 3h, 6h, 24h, or at a custom time
-- **Cookies upload** — paste your `cookies.txt` from the UI, no server access needed
-- **Live progress cards** — real-time download progress with percent and speed
-- **Persistent state** — jobs, playlists, and history saved to `data/app-state.json`
-- **Settings drawer** — tabbed panel (Updates · Cookies · Storage) with status indicators
-- **Health endpoint** — `GET /health` for container health checks
+- **Real playlist sync** — fetches live video lists via `yt-dlp`, tracks seen IDs, only queues new videos
+- **Playlist delete** — remove a playlist and its tracked history with one click
+- **Per-playlist settings** — choose quality and format per playlist
+- **Cookies upload** — upload `cookies.txt` from the UI, no server access needed
+- **Live progress cards** — real-time percent, speed, and status per download
+- **Download history** — persistent log of completed downloads
+- **Tabbed settings drawer** — Updates · Cookies · Storage with color status indicators
+- **Health endpoint** — `GET /health` for container monitoring
 
 ## Quick Start
 
@@ -61,10 +58,18 @@ YouTube rate-limits unauthenticated server IPs. Upload your cookies to bypass th
 
 Cookies are stored in `secrets/youtube-cookies.txt` inside the container.
 
+## Playlist Sync
+
+Add a YouTube playlist URL and set a sync schedule. On first sync, all existing videos are recorded as seen — no bulk download. On every subsequent sync, only videos added since the last check are queued automatically.
+
+- Use the **↻ Sync** button on any playlist card to trigger a manual sync
+- Use the **✕** button to delete a playlist and its history
+- Each playlist stores its own quality and format preference
+
 ## API
 
 ```bash
-# Status
+# Server status + version
 curl http://localhost:3002/api/status
 
 # Queue a download
@@ -72,16 +77,28 @@ curl -X POST http://localhost:3002/api/jobs \
   -H "Content-Type: application/json" \
   -d '{"url":"https://youtu.be/VIDEO_ID","quality":"1080p","format":"mp4","permissionConfirmed":true}'
 
-# List jobs
+# List active jobs
 curl http://localhost:3002/api/jobs
 
-# Sync a playlist
+# Clear finished jobs
+curl -X DELETE http://localhost:3002/api/jobs
+
+# Add and sync a playlist
 curl -X POST http://localhost:3002/api/playlists/sync \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.youtube.com/playlist?list=LIST_ID","name":"My playlist","interval":"6h"}'
+  -d '{"url":"https://www.youtube.com/playlist?list=LIST_ID","name":"My playlist","interval":"6h","quality":"1080p","format":"mp4"}'
+
+# Manually re-sync a playlist
+curl -X POST http://localhost:3002/api/playlists/PLAYLIST_ID/sync
+
+# Delete a playlist
+curl -X DELETE http://localhost:3002/api/playlists/PLAYLIST_ID
 
 # Download history
 curl http://localhost:3002/api/history
+
+# Clear history
+curl -X DELETE http://localhost:3002/api/history
 ```
 
 ## Quality Options
@@ -103,3 +120,7 @@ curl http://localhost:3002/api/history
 | `DOWNLOADER_BIN` | `yt-dlp` | Path to yt-dlp binary |
 | `FFMPEG_BIN` | *(auto)* | Path to ffmpeg binary |
 | `PORT` | `3000` | Port the server listens on |
+
+## Important
+
+Download or sync only media you own, created, licensed, or have explicit permission to save. YouTube links run through `yt-dlp` — use this only for videos you have the right to download.
