@@ -724,24 +724,29 @@ async function performPlaylistSync(playlist, reason = "manual") {
   try {
     const videos = await fetchPlaylistVideos(playlist.url);
     const seenIds = new Set(Array.isArray(playlist.seenIds) ? playlist.seenIds : []);
-    const newVideos = videos.filter((v) => !seenIds.has(v.id));
+    const isFirstSync = seenIds.size === 0;
+    const newVideos = isFirstSync ? [] : videos.filter((v) => !seenIds.has(v.id));
 
     playlist.itemsFound = videos.length;
     playlist.newItems = newVideos.length;
-    playlist.seenIds = [...seenIds, ...newVideos.map((v) => v.id)];
+    // On first sync: record everything as seen so only future additions get queued
+    playlist.seenIds = [...new Set([...seenIds, ...videos.map((v) => v.id)])];
     playlist.status = "synced";
 
-    for (const video of newVideos) {
-      const job = createJob({
-        url: video.url,
-        quality: playlist.quality || "1080p",
-        format: playlist.format || "mp4",
-        permissionConfirmed: true
-      });
-      jobs.unshift(job);
+    if (isFirstSync) {
+      console.log(`[sync] ${playlist.name}: ${videos.length} total — first sync, recording as seen (reason: ${reason})`);
+    } else {
+      for (const video of newVideos) {
+        const job = createJob({
+          url: video.url,
+          quality: playlist.quality || "1080p",
+          format: playlist.format || "mp4",
+          permissionConfirmed: true
+        });
+        jobs.unshift(job);
+      }
+      console.log(`[sync] ${playlist.name}: ${videos.length} total, ${newVideos.length} new queued (${reason})`);
     }
-
-    console.log(`[sync] ${playlist.name}: ${videos.length} total, ${newVideos.length} new (${reason})`);
   } catch (error) {
     playlist.status = "error";
     playlist.lastError = error.message;
