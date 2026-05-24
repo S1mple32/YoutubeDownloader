@@ -335,15 +335,15 @@ function argsForDownloader(job) {
   if (job.format === "mp3" || job.quality === "audio") {
     args.push("-x", "--audio-format", "mp3");
   } else if (job.quality === "best") {
-    args.push("-f", "bv*+ba/b/best");
+    args.push("-f", "bestvideo+bestaudio/b/best");
   } else if (job.quality === "2160p-only") {
-    args.push("-f", "bv*[height=2160]+ba/b[height=2160]/bv*+ba/b/best", "-S", "res:2160");
+    args.push("-f", "bestvideo[height=2160]+bestaudio/b[height=2160]/bestvideo+bestaudio/b/best");
   } else {
     const height = Number.parseInt(job.quality, 10);
     const formatSelector = Number.isFinite(height)
-      ? `bv*[height<=${height}]+ba/b[height<=${height}]/bv*+ba/b/best`
-      : "bv*+ba/b/best";
-    args.push("-f", formatSelector, "-S", Number.isFinite(height) ? `res:${height}` : "res");
+      ? `bestvideo[height<=${height}]+bestaudio/b[height<=${height}]/bestvideo+bestaudio/b/best`
+      : "bestvideo+bestaudio/b/best";
+    args.push("-f", formatSelector);
   }
 
   if (job.format === "mp4") {
