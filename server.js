@@ -211,7 +211,13 @@ function statusPayload() {
     queuedJobs: jobs.length,
     syncedPlaylists: playlists.length,
     cookiesConfigured: fs.existsSync(cookiesPath),
-    downloadsDir: getDownloadsDir()
+    downloadsDir: getDownloadsDir(),
+    tools: {
+      downloaderBin,
+      downloaderExists: fs.existsSync(downloaderBin),
+      ffmpegBin: ffmpegBin || null,
+      ffmpegExists: ffmpegBin ? fs.existsSync(ffmpegBin) : false
+    }
   };
 }
 
