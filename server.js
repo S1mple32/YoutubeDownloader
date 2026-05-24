@@ -320,6 +320,8 @@ function argsForDownloader(job) {
     "--restrict-filenames",
     "--concurrent-fragments",
     "8",
+    "--extractor-args", "youtube:player_client=tv_embedded,web",
+    "--js-runtimes", "node",
     "-o",
     outputTemplate
   ];
