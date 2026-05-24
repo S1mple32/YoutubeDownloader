@@ -91,9 +91,7 @@ function fetchJson(url, headers = {}) {
       }
     }, (response) => {
       let body = "";
-      response.on("data", (chunk) => {
-        body += chunk.toString();
-      });
+      response.on("data", (chunk) => { body += chunk.toString(); });
 
       response.on("end", () => {
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -452,7 +450,7 @@ function clearHistory() {
 }
 
 function updateDownloaderProgress(job, line) {
-  const cleanLine = line.replace(/\u001b\[[0-9;]*m/g, "").trim();
+  const cleanLine = line.replace(/\[[0-9;]*m/g, "").trim();
   const percentMatch = cleanLine.match(/\[download\]\s+([0-9.]+)%/);
   const fragmentMatch = cleanLine.match(/\[download\]\s+Got error|^\[download\]\s+fragment/i);
   const destinationMatch = cleanLine.match(/\[download\]\s+Destination:\s+(.+)/);
@@ -586,6 +584,8 @@ function createJob({ url, quality, format, permissionConfirmed }) {
   return job;
 }
 
+// ── Playlist sync (real) ────────────────────────────────────────
+
 function normalizeSchedule({ scheduleType, interval, intervalHours, timeOfDay }) {
   const type = scheduleType || interval || "manual";
 
@@ -637,24 +637,125 @@ function nextSyncDate(schedule, from = new Date()) {
   return new Date(from.getTime() + schedule.intervalHours * 60 * 60 * 1000);
 }
 
-function performPlaylistSync(playlist, reason = "manual") {
-  const now = new Date();
-  const previousCount = playlist.itemsFound || 0;
-  const discovered = Math.floor(Math.random() * 4);
+function fetchPlaylistVideos(url) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "--flat-playlist",
+      "--dump-json",
+      "--no-warnings",
+      "--yes-playlist"
+    ];
 
-  playlist.itemsFound = Math.max(previousCount, previousCount + discovered);
-  playlist.newItems = discovered;
+    if (fs.existsSync(cookiesPath)) {
+      args.push("--cookies", cookiesPath);
+    }
+
+    args.push(url);
+
+    const child = spawn(downloaderBin, args, {
+      cwd: runtimeRoot,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    const videos = [];
+    let stderr = "";
+    let stdout = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+      const lines = stdout.split(/\r?\n/);
+      stdout = lines.pop();
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line);
+          const id = entry.id;
+          const videoUrl = entry.webpage_url || entry.url || (id ? `https://www.youtube.com/watch?v=${id}` : null);
+          if (id && videoUrl) {
+            videos.push({ id, url: videoUrl, title: entry.title || id });
+          }
+        } catch {
+          // skip non-JSON lines
+        }
+      }
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", reject);
+
+    child.on("close", (code) => {
+      // flush any remaining stdout
+      if (stdout.trim()) {
+        try {
+          const entry = JSON.parse(stdout.trim());
+          const id = entry.id;
+          const videoUrl = entry.webpage_url || entry.url || (id ? `https://www.youtube.com/watch?v=${id}` : null);
+          if (id && videoUrl) {
+            videos.push({ id, url: videoUrl, title: entry.title || id });
+          }
+        } catch {}
+      }
+
+      if (code !== 0 && videos.length === 0) {
+        const lastError = stderr.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0] || `yt-dlp exited with code ${code}`;
+        reject(new Error(lastError));
+      } else {
+        resolve(videos);
+      }
+    });
+  });
+}
+
+async function performPlaylistSync(playlist, reason = "manual") {
+  if (playlist.status === "syncing") return playlist;
+
+  const now = new Date();
+  playlist.status = "syncing";
   playlist.lastSyncAt = now.toISOString();
-  playlist.nextSyncAt = nextSyncDate(playlist.schedule, now)?.toISOString() || null;
   playlist.lastSyncReason = reason;
-  playlist.status = "synced";
+  playlist.nextSyncAt = nextSyncDate(playlist.schedule, now)?.toISOString() || null;
+  playlist.lastError = null;
+  saveState();
+
+  try {
+    const videos = await fetchPlaylistVideos(playlist.url);
+    const seenIds = new Set(Array.isArray(playlist.seenIds) ? playlist.seenIds : []);
+    const newVideos = videos.filter((v) => !seenIds.has(v.id));
+
+    playlist.itemsFound = videos.length;
+    playlist.newItems = newVideos.length;
+    playlist.seenIds = [...seenIds, ...newVideos.map((v) => v.id)];
+    playlist.status = "synced";
+
+    for (const video of newVideos) {
+      const job = createJob({
+        url: video.url,
+        quality: playlist.quality || "1080p",
+        format: playlist.format || "mp4",
+        permissionConfirmed: true
+      });
+      jobs.unshift(job);
+    }
+
+    console.log(`[sync] ${playlist.name}: ${videos.length} total, ${newVideos.length} new (${reason})`);
+  } catch (error) {
+    playlist.status = "error";
+    playlist.lastError = error.message;
+    console.error(`[sync] ${playlist.name} failed: ${error.message}`);
+  }
+
   saveState();
   return playlist;
 }
 
-function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOfDay }) {
+function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOfDay, quality, format }) {
   const safeUrl = assertWebUrl(url);
   const schedule = normalizeSchedule({ scheduleType, interval, intervalHours, timeOfDay });
+
   const playlist = {
     id: randomUUID(),
     name: name || `${sourceFromUrl(safeUrl)} playlist`,
@@ -662,11 +763,15 @@ function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOf
     source: sourceFromUrl(safeUrl),
     interval: schedule.label,
     schedule,
-    itemsFound: 8 + Math.floor(Math.random() * 36),
+    quality: quality || "1080p",
+    format: format || "mp4",
+    itemsFound: 0,
     newItems: 0,
+    seenIds: [],
     lastSyncAt: null,
     nextSyncAt: null,
     lastSyncReason: null,
+    lastError: null,
     status: "pending"
   };
 
@@ -679,15 +784,15 @@ function runScheduledPlaylistSyncs() {
   const now = new Date();
 
   playlists.forEach((playlist) => {
-    if (!playlist.nextSyncAt || new Date(playlist.nextSyncAt) > now) {
-      return;
-    }
-
+    if (playlist.status === "syncing") return;
+    if (!playlist.nextSyncAt || new Date(playlist.nextSyncAt) > now) return;
     performPlaylistSync(playlist, "scheduled");
   });
 }
 
-setInterval(runScheduledPlaylistSyncs, 30 * 1000);
+setInterval(runScheduledPlaylistSyncs, 60 * 1000);
+
+// ── Static file serving ─────────────────────────────────────────
 
 function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -709,6 +814,8 @@ function serveStatic(req, res) {
     send(res, 200, data, mimeTypes[path.extname(filePath)] || "application/octet-stream");
   });
 }
+
+// ── API ─────────────────────────────────────────────────────────
 
 async function handleApi(req, res) {
   if (req.url === "/api/status" && req.method === "GET") {
@@ -764,7 +871,9 @@ async function handleApi(req, res) {
         interval: body.interval,
         scheduleType: body.scheduleType,
         intervalHours: body.intervalHours,
-        timeOfDay: body.timeOfDay
+        timeOfDay: body.timeOfDay,
+        quality: body.quality,
+        format: body.format
       });
 
       sendJson(res, 201, { playlist });
@@ -772,6 +881,27 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: error.message });
     }
 
+    return true;
+  }
+
+  // Manual re-sync of an existing playlist: POST /api/playlists/:id/sync
+  const resyncMatch = req.url.match(/^\/api\/playlists\/([^/]+)\/sync$/) && req.method === "POST";
+  if (resyncMatch) {
+    const id = req.url.split("/")[3];
+    const playlist = playlists.find((p) => p.id === id);
+
+    if (!playlist) {
+      sendJson(res, 404, { error: "Playlist not found" });
+      return true;
+    }
+
+    if (playlist.status === "syncing") {
+      sendJson(res, 409, { error: "Sync already in progress" });
+      return true;
+    }
+
+    performPlaylistSync(playlist, "manual");
+    sendJson(res, 202, { playlist });
     return true;
   }
 

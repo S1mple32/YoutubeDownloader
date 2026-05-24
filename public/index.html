@@ -123,7 +123,29 @@
             </label>
           </div>
 
-          <button class="button" type="submit">Sync playlist</button>
+          <div class="form-grid">
+            <label class="field">
+              <span>Quality</span>
+              <select id="playlist-quality">
+                <option value="best">Best available</option>
+                <option value="2160p">4K / 2160p</option>
+                <option value="1080p" selected>1080p</option>
+                <option value="720p">720p</option>
+                <option value="audio">Audio only</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Format</span>
+              <select id="playlist-format">
+                <option value="native" selected>Fast native</option>
+                <option value="mp4">MP4</option>
+                <option value="webm">WebM</option>
+                <option value="mp3">MP3</option>
+              </select>
+            </label>
+          </div>
+
+          <button class="button button--primary" type="submit">Sync playlist</button>
           <p class="form-message" id="playlist-message" role="status"></p>
         </form>
       </section>

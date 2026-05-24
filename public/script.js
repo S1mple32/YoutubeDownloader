@@ -169,20 +169,53 @@ function renderJobs(jobs) {
 function renderPlaylists(playlists) {
   playlistCount.textContent = `${playlists.length} synced`;
   playlistsEmpty.hidden = playlists.length > 0;
-  playlistList.innerHTML = playlists.map((playlist) => `
+  playlistList.innerHTML = playlists.map((playlist) => {
+    const statusClass = playlist.status === "synced" ? "badge--complete"
+      : playlist.status === "syncing" ? "badge--merging"
+      : playlist.status === "error" ? "badge--blocked"
+      : "";
+    const isSyncing = playlist.status === "syncing";
+    return `
     <article class="playlist">
-      <div>
-        <strong>${escapeHtml(playlist.name)}</strong>
-        <p>${escapeHtml(playlist.source)} · ${escapeHtml(playlist.url)}</p>
+      <div class="playlist__header">
+        <div>
+          <strong>${escapeHtml(playlist.name)}</strong>
+          <p>${escapeHtml(playlist.source)} · ${escapeHtml(playlist.url)}</p>
+        </div>
+        <div class="playlist__actions">
+          <span class="badge ${statusClass}">${escapeHtml(playlist.status)}</span>
+          <button class="button button--ghost button--compact" data-resync="${escapeHtml(playlist.id)}" ${isSyncing ? "disabled" : ""}>
+            ${isSyncing ? "Syncing…" : "↻ Sync"}
+          </button>
+        </div>
       </div>
+      ${playlist.lastError ? `<p class="playlist__error">${escapeHtml(playlist.lastError)}</p>` : ""}
       <dl>
         <div><dt>Items</dt><dd>${playlist.itemsFound}</dd></div>
         <div><dt>New</dt><dd>${playlist.newItems}</dd></div>
+        <div><dt>Quality</dt><dd>${escapeHtml(playlist.quality || "1080p")}</dd></div>
         <div><dt>Last sync</dt><dd>${formatDate(playlist.lastSyncAt)}</dd></div>
         <div><dt>Next sync</dt><dd>${formatDate(playlist.nextSyncAt)}</dd></div>
         <div><dt>Schedule</dt><dd>${escapeHtml(playlist.interval)}</dd></div>
       </dl>
-    </article>`).join("");
+    </article>`;
+  }).join("");
+
+  // wire up re-sync buttons
+  document.querySelectorAll("[data-resync]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.resync;
+      btn.disabled = true;
+      btn.textContent = "Syncing…";
+      try {
+        await request(`/api/playlists/${id}/sync`, { method: "POST" });
+        await refresh();
+      } catch (error) {
+        btn.disabled = false;
+        btn.textContent = "↻ Sync";
+      }
+    });
+  });
 }
 
 function renderHistory(history) {
@@ -415,7 +448,9 @@ playlistForm.addEventListener("submit", async (event) => {
         interval: syncInterval.value,
         scheduleType: syncInterval.value,
         intervalHours: document.querySelector("#custom-interval-hours").value,
-        timeOfDay: document.querySelector("#sync-time").value
+        timeOfDay: document.querySelector("#sync-time").value,
+        quality: document.querySelector("#playlist-quality").value,
+        format: document.querySelector("#playlist-format").value
       })
     });
     playlistForm.reset();

@@ -833,3 +833,34 @@ dd {
   font-weight: 700;
   color: var(--muted);
 }
+
+/* ── Playlist card updates ─────────────────────────────────────── */
+
+.playlist__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.playlist__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.playlist__error {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(180, 35, 24, 0.08);
+  color: var(--danger);
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+[data-theme="dark"] .playlist__error {
+  background: rgba(248, 113, 113, 0.1);
+}
