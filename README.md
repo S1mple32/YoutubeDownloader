@@ -1,63 +1,29 @@
 # YtMark1
 
+A Docker-based video download and playlist sync manager with a clean web UI.
 
-A Docker-ready and desktop-ready video download and playlist sync app.
+![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen) ![Version](https://img.shields.io/badge/version-1.3.4-teal)
 
-This starter app includes:
+<img width="1332" height="829" alt="YtMark1 light mode" src="https://github.com/user-attachments/assets/145f1c7d-555d-4004-81bb-0bc0032553f6" />
+<img width="1512" height="852" alt="YtMark1 dark mode" src="https://github.com/user-attachments/assets/4d0691fb-09ac-40ad-b2ef-34be06d7b5cf" />
 
-- Allows cache cookies from Youtube to be directly uploaded from the WEB UI (i personally use "Get cookies.txt LOCALLY" addon i found it quite easy to use you upload directly from your own computer without the need to go in to the server if using on docker)
-- Video URL queue with quality options up to 4K / 2160p
-- Direct media URL downloads saved into `downloads/`
-- YouTube downloads through `yt-dlp` for videos you own or have permission to save
-- Faster YouTube downloads with concurrent fragments
-- Fast native format mode that avoids forcing MP4 when possible
-- 4K only mode for exact 2160p downloads
-- Playlist sync/import panel
-- Live progress cards
-- Persistent playlists, schedules, and download history in `data/app-state.json`
-- JSON API endpoints
-- Health endpoint at `/health`
-- Production Dockerfile and Compose config
-- Native desktop shell for macOS and Windows through Electron
+## Features
 
-Important: download or sync only media you own, created, licensed, or have explicit permission to save. Direct media files such as `.mp4`, `.webm`, `.mp3`, and `.m4a` are downloaded into `downloads/`. YouTube links run through `yt-dlp`; use this only for your own videos or media you have permission to download.
+- **Dark mode** — toggle (☾/☀) in the topbar, respects OS preference, persists across reloads
+- **Download queue** — paste any YouTube URL, pick quality and format, add to queue
+- **Quality options** — Best, 4K/2160p, 1080p, 720p, Audio only
+- **Format options** — Fast native, MP4, WebM, MP3
+- **Concurrent fragments** — faster downloads with parallel chunk fetching
+- **Real playlist sync** — fetches live video lists via `yt-dlp`, tracks seen IDs, only queues new videos
+- **Playlist delete** — remove a playlist and its tracked history with one click
+- **Per-playlist settings** — choose quality and format per playlist
+- **Cookies upload** — upload `cookies.txt` from the UI, no server access needed
+- **Live progress cards** — real-time percent, speed, and status per download
+- **Download history** — persistent log of completed downloads
+- **Tabbed settings drawer** — Updates · Cookies · Storage with color status indicators
+- **Health endpoint** — `GET /health` for container monitoring
 
-## Run As A Desktop App
-
-Install Node.js with npm first, then run:
-
-```bash
-npm install
-npm run desktop
-```
-
-`npm install` installs the Electron app dependencies and also creates a local `.venv` with `yt-dlp` and `ffmpeg` support. The desktop app opens in its own window and starts the local backend on a free private port automatically, so it is not locked to `3000`.
-
-Build installers:
-
-```bash
-npm run build:mac
-npm run build:win
-```
-
-Built apps are written to `release/`. Build the Windows installer on Windows for the smoothest result; macOS builds should be made on macOS.
-
-Desktop app data, cookies, and downloads are stored in the app user-data folder by default. You can change the active download folder from Settings inside the app.
-
-## Run Locally
-
-```bash
-node server.js
-```
-
-Open `http://localhost:3000`.
-
-State is saved to `data/app-state.json`. Downloaded media is saved to `downloads/`.
-You can change the active download folder from the app Settings panel. In Docker, use a path mounted into the container, such as `/app/downloads`, or add another volume in `compose.yaml`.
-
-For YouTube downloads when running locally, install `yt-dlp` and `ffmpeg` first, or run `npm install` to let the desktop dependency installer create the bundled `.venv`. Docker installs them inside the image automatically.
-
-## Run With Docker
+## Quick Start
 
 ```bash
 docker compose up --build
@@ -65,31 +31,96 @@ docker compose up --build
 
 Open `http://localhost:3002`.
 
+## Docker Compose
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./data:/app/data
+      - ./secrets:/app/secrets
+    restart: unless-stopped
+```
+
+Downloads go to `./downloads`, state to `./data`, cookies to `./secrets`.
+
+## YouTube Cookies (Recommended)
+
+YouTube rate-limits unauthenticated server IPs. Upload your cookies to bypass this:
+
+1. Install the **"Get cookies.txt LOCALLY"** browser extension
+2. Export cookies while signed in to YouTube
+3. Open Settings (⚙) → **Cookies tab** → upload the `.txt` file
+
+Cookies are stored in `secrets/youtube-cookies.txt` inside the container.
+
+## Playlist Sync
+
+Add a YouTube playlist URL and set a sync schedule. On first sync, all existing videos are recorded as seen — no bulk download. On every subsequent sync, only videos added since the last check are queued automatically.
+
+- Use the **↻ Sync** button on any playlist card to trigger a manual sync
+- Use the **✕** button to delete a playlist and its history
+- Each playlist stores its own quality and format preference
+
 ## API
 
 ```bash
-curl http://localhost:3000/api/status
-curl http://localhost:3000/api/jobs
-curl http://localhost:3000/api/playlists
-```
+# Server status + version
+curl http://localhost:3002/api/status
 
-Create a download job:
-
-```bash
-curl -X POST http://localhost:3000/api/jobs \
+# Queue a download
+curl -X POST http://localhost:3002/api/jobs \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com/video.mp4","quality":"1080p","format":"mp4","permissionConfirmed":true}'
-```
+  -d '{"url":"https://youtu.be/VIDEO_ID","quality":"1080p","format":"mp4","permissionConfirmed":true}'
 
-Sync a playlist:
+# List active jobs
+curl http://localhost:3002/api/jobs
 
-```bash
-curl -X POST http://localhost:3000/api/playlists/sync \
+# Clear finished jobs
+curl -X DELETE http://localhost:3002/api/jobs
+
+# Add and sync a playlist
+curl -X POST http://localhost:3002/api/playlists/sync \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.youtube.com/playlist?list=YOUR_LIST","name":"My playlist","interval":"6h"}'
+  -d '{"url":"https://www.youtube.com/playlist?list=LIST_ID","name":"My playlist","interval":"6h","quality":"1080p","format":"mp4"}'
+
+# Manually re-sync a playlist
+curl -X POST http://localhost:3002/api/playlists/PLAYLIST_ID/sync
+
+# Delete a playlist
+curl -X DELETE http://localhost:3002/api/playlists/PLAYLIST_ID
+
+# Download history
+curl http://localhost:3002/api/history
+
+# Clear history
+curl -X DELETE http://localhost:3002/api/history
 ```
 
-## Next Production Step
+## Quality Options
 
-Replace the simulated queue in `server.js` with a permitted media provider integration, storage volume, and background worker. For YouTube playlist metadata, use the YouTube Data API with an API key or OAuth, depending on whether playlists are public or private.
-Playlist sync is still metadata-style in this starter. For real YouTube playlist metadata, use the YouTube Data API with an API key or OAuth, depending on whether playlists are public or private.
+| Value | Description |
+|-------|-------------|
+| `best` | Best available quality |
+| `2160p-only` | Exactly 4K, no fallback |
+| `2160p` | 4K with fallback to best |
+| `1080p` | 1080p with fallback |
+| `720p` | 720p with fallback |
+| `audio` | Audio only (MP3) |
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `YTMARK1_HOME` | app dir | Root for downloads, data, secrets |
+| `DOWNLOADER_BIN` | `yt-dlp` | Path to yt-dlp binary |
+| `FFMPEG_BIN` | *(auto)* | Path to ffmpeg binary |
+| `PORT` | `3000` | Port the server listens on |
+
+## Important
+
+Download or sync only media you own, created, licensed, or have explicit permission to save. YouTube links run through `yt-dlp` — use this only for videos you have the right to download.
