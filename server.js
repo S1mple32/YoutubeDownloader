@@ -238,7 +238,7 @@ function assertWebUrl(value) {
 
 function runDirectDownload(job) {
   const client = job.url.startsWith("https:") ? https : http;
-  const outputName = `${job.id}-${filenameFromUrl(job.url, "video")}`;
+  const outputName = filenameFromUrl(job.url, "video");
   const targetPath = path.join(job.outputDir || getDownloadsDir(), outputName);
 
   job.status = "downloading";
@@ -311,7 +311,7 @@ function completeJob(job, output) {
 }
 
 function argsForDownloader(job) {
-  const outputTemplate = path.join(job.outputDir || getDownloadsDir(), `${job.id}-%(title).120s.%(ext)s`);
+  const outputTemplate = path.join(job.outputDir || getDownloadsDir(), `%(title).120s.%(ext)s`);
   const args = [
     "--newline",
     "--no-playlist",
