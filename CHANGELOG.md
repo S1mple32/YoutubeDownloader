@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.3.6
+
+- **Playlist preview modal** — fetches videos before adding; shows all entries with checkboxes and per-video quality/format selects
+- Unchecked videos in the preview are tracked as seen (won't re-appear in future syncs) but not downloaded
+- Per-video quality and format override inside the preview modal, defaulting to playlist config
+- **Per-playlist save folder** — new "Save to folder" field on the playlist form; applied to every future auto-sync
+- **Title-based filenames** — downloads now saved as the video title (e.g. `My Video.mp4`) instead of `UUID-My Video.mp4`
+- **Skip existing files** — `--no-overwrites` added as default; yt-dlp skips if file already exists and shows "skipped" badge
+- **Force re-download** — ↻ Force button on skipped job cards re-queues with `--force-overwrites`; "Force re-download" checkbox on the download form
+- **Force removal** — 🗑 button on each job card removes the job and deletes its output file + partial/fragment files from disk
+- **Purge all + delete files** — button in the queue header removes every job and deletes all their files (with confirmation)
+- `DELETE /api/jobs/:id` — new endpoint for per-job removal with file deletion
+- `DELETE /api/jobs/purge` — new endpoint for bulk removal with file deletion
+- `POST /api/playlists/preview` — new endpoint for fetching playlist video list without creating the playlist
+
 ## v1.3.5
 
 - Added inline file rename — ✎ button on each history entry renames the file on disk in place
@@ -7,7 +22,6 @@
 - `PATCH /api/history/:id` endpoint renames the output file and updates history
 - `outputDir` parameter added to `POST /api/jobs` and passed through to yt-dlp and direct downloads
 - Fixed EACCES cookie upload error — `secrets/` directory now gets `chmod 777` at Dockerfile build time
-- Fixed bind-mounted secrets dir permissions on existing installs (no image rebuild required)
 
 ## v1.3.4
 
