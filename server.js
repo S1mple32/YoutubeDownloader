@@ -91,9 +91,7 @@ function fetchJson(url, headers = {}) {
       }
     }, (response) => {
       let body = "";
-      response.on("data", (chunk) => {
-        body += chunk.toString();
-      });
+      response.on("data", (chunk) => { body += chunk.toString(); });
 
       response.on("end", () => {
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -241,7 +239,7 @@ function assertWebUrl(value) {
 function runDirectDownload(job) {
   const client = job.url.startsWith("https:") ? https : http;
   const outputName = `${job.id}-${filenameFromUrl(job.url, "video")}`;
-  const targetPath = path.join(getDownloadsDir(), outputName);
+  const targetPath = path.join(job.outputDir || getDownloadsDir(), outputName);
 
   job.status = "downloading";
   job.message = "Downloading direct media file";
@@ -313,7 +311,7 @@ function completeJob(job, output) {
 }
 
 function argsForDownloader(job) {
-  const outputTemplate = path.join(getDownloadsDir(), `${job.id}-%(title).120s.%(ext)s`);
+  const outputTemplate = path.join(job.outputDir || getDownloadsDir(), `${job.id}-%(title).120s.%(ext)s`);
   const args = [
     "--newline",
     "--no-playlist",
@@ -452,7 +450,7 @@ function clearHistory() {
 }
 
 function updateDownloaderProgress(job, line) {
-  const cleanLine = line.replace(/\u001b\[[0-9;]*m/g, "").trim();
+  const cleanLine = line.replace(/\[[0-9;]*m/g, "").trim();
   const percentMatch = cleanLine.match(/\[download\]\s+([0-9.]+)%/);
   const fragmentMatch = cleanLine.match(/\[download\]\s+Got error|^\[download\]\s+fragment/i);
   const destinationMatch = cleanLine.match(/\[download\]\s+Destination:\s+(.+)/);
@@ -544,8 +542,14 @@ function tickJob(job) {
   }
 }
 
-function createJob({ url, quality, format, permissionConfirmed }) {
+function createJob({ url, quality, format, permissionConfirmed, outputDir }) {
   const safeUrl = assertWebUrl(url);
+
+  let resolvedOutputDir = null;
+  if (outputDir) {
+    resolvedOutputDir = normalizeDownloadDir(outputDir);
+    fs.mkdirSync(resolvedOutputDir, { recursive: true });
+  }
 
   if (!permissionConfirmed) {
     return {
@@ -554,6 +558,7 @@ function createJob({ url, quality, format, permissionConfirmed }) {
       source: sourceFromUrl(safeUrl),
       quality,
       format,
+      outputDir: resolvedOutputDir,
       status: "blocked",
       progress: 0,
       message: "Confirm you have rights or permission to download this media.",
@@ -568,6 +573,7 @@ function createJob({ url, quality, format, permissionConfirmed }) {
     source: sourceFromUrl(safeUrl),
     quality,
     format,
+    outputDir: resolvedOutputDir,
     status: "queued",
     progress: 0,
     message: "Queued for download",
@@ -585,6 +591,8 @@ function createJob({ url, quality, format, permissionConfirmed }) {
 
   return job;
 }
+
+// ── Playlist sync (real) ────────────────────────────────────────
 
 function normalizeSchedule({ scheduleType, interval, intervalHours, timeOfDay }) {
   const type = scheduleType || interval || "manual";
@@ -637,24 +645,130 @@ function nextSyncDate(schedule, from = new Date()) {
   return new Date(from.getTime() + schedule.intervalHours * 60 * 60 * 1000);
 }
 
-function performPlaylistSync(playlist, reason = "manual") {
-  const now = new Date();
-  const previousCount = playlist.itemsFound || 0;
-  const discovered = Math.floor(Math.random() * 4);
+function fetchPlaylistVideos(url) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "--flat-playlist",
+      "--dump-json",
+      "--no-warnings",
+      "--yes-playlist"
+    ];
 
-  playlist.itemsFound = Math.max(previousCount, previousCount + discovered);
-  playlist.newItems = discovered;
+    if (fs.existsSync(cookiesPath)) {
+      args.push("--cookies", cookiesPath);
+    }
+
+    args.push(url);
+
+    const child = spawn(downloaderBin, args, {
+      cwd: runtimeRoot,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    const videos = [];
+    let stderr = "";
+    let stdout = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+      const lines = stdout.split(/\r?\n/);
+      stdout = lines.pop();
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line);
+          const id = entry.id;
+          const videoUrl = entry.webpage_url || entry.url || (id ? `https://www.youtube.com/watch?v=${id}` : null);
+          if (id && videoUrl) {
+            videos.push({ id, url: videoUrl, title: entry.title || id });
+          }
+        } catch {
+          // skip non-JSON lines
+        }
+      }
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", reject);
+
+    child.on("close", (code) => {
+      // flush any remaining stdout
+      if (stdout.trim()) {
+        try {
+          const entry = JSON.parse(stdout.trim());
+          const id = entry.id;
+          const videoUrl = entry.webpage_url || entry.url || (id ? `https://www.youtube.com/watch?v=${id}` : null);
+          if (id && videoUrl) {
+            videos.push({ id, url: videoUrl, title: entry.title || id });
+          }
+        } catch {}
+      }
+
+      if (code !== 0 && videos.length === 0) {
+        const lastError = stderr.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0] || `yt-dlp exited with code ${code}`;
+        reject(new Error(lastError));
+      } else {
+        resolve(videos);
+      }
+    });
+  });
+}
+
+async function performPlaylistSync(playlist, reason = "manual") {
+  if (playlist.status === "syncing") return playlist;
+
+  const now = new Date();
+  playlist.status = "syncing";
   playlist.lastSyncAt = now.toISOString();
-  playlist.nextSyncAt = nextSyncDate(playlist.schedule, now)?.toISOString() || null;
   playlist.lastSyncReason = reason;
-  playlist.status = "synced";
+  playlist.nextSyncAt = nextSyncDate(playlist.schedule, now)?.toISOString() || null;
+  playlist.lastError = null;
+  saveState();
+
+  try {
+    const videos = await fetchPlaylistVideos(playlist.url);
+    const seenIds = new Set(Array.isArray(playlist.seenIds) ? playlist.seenIds : []);
+    const isFirstSync = seenIds.size === 0;
+    const newVideos = isFirstSync ? [] : videos.filter((v) => !seenIds.has(v.id));
+
+    playlist.itemsFound = videos.length;
+    playlist.newItems = newVideos.length;
+    // On first sync: record everything as seen so only future additions get queued
+    playlist.seenIds = [...new Set([...seenIds, ...videos.map((v) => v.id)])];
+    playlist.status = "synced";
+
+    if (isFirstSync) {
+      console.log(`[sync] ${playlist.name}: ${videos.length} total — first sync, recording as seen (reason: ${reason})`);
+    } else {
+      for (const video of newVideos) {
+        const job = createJob({
+          url: video.url,
+          quality: playlist.quality || "1080p",
+          format: playlist.format || "mp4",
+          permissionConfirmed: true
+        });
+        jobs.unshift(job);
+      }
+      console.log(`[sync] ${playlist.name}: ${videos.length} total, ${newVideos.length} new queued (${reason})`);
+    }
+  } catch (error) {
+    playlist.status = "error";
+    playlist.lastError = error.message;
+    console.error(`[sync] ${playlist.name} failed: ${error.message}`);
+  }
+
   saveState();
   return playlist;
 }
 
-function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOfDay }) {
+function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOfDay, quality, format }) {
   const safeUrl = assertWebUrl(url);
   const schedule = normalizeSchedule({ scheduleType, interval, intervalHours, timeOfDay });
+
   const playlist = {
     id: randomUUID(),
     name: name || `${sourceFromUrl(safeUrl)} playlist`,
@@ -662,11 +776,15 @@ function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOf
     source: sourceFromUrl(safeUrl),
     interval: schedule.label,
     schedule,
-    itemsFound: 8 + Math.floor(Math.random() * 36),
+    quality: quality || "1080p",
+    format: format || "mp4",
+    itemsFound: 0,
     newItems: 0,
+    seenIds: [],
     lastSyncAt: null,
     nextSyncAt: null,
     lastSyncReason: null,
+    lastError: null,
     status: "pending"
   };
 
@@ -679,15 +797,15 @@ function runScheduledPlaylistSyncs() {
   const now = new Date();
 
   playlists.forEach((playlist) => {
-    if (!playlist.nextSyncAt || new Date(playlist.nextSyncAt) > now) {
-      return;
-    }
-
+    if (playlist.status === "syncing") return;
+    if (!playlist.nextSyncAt || new Date(playlist.nextSyncAt) > now) return;
     performPlaylistSync(playlist, "scheduled");
   });
 }
 
-setInterval(runScheduledPlaylistSyncs, 30 * 1000);
+setInterval(runScheduledPlaylistSyncs, 60 * 1000);
+
+// ── Static file serving ─────────────────────────────────────────
 
 function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -709,6 +827,8 @@ function serveStatic(req, res) {
     send(res, 200, data, mimeTypes[path.extname(filePath)] || "application/octet-stream");
   });
 }
+
+// ── API ─────────────────────────────────────────────────────────
 
 async function handleApi(req, res) {
   if (req.url === "/api/status" && req.method === "GET") {
@@ -733,7 +853,8 @@ async function handleApi(req, res) {
         url: body.url,
         quality: body.quality || "1080p",
         format: body.format || "mp4",
-        permissionConfirmed: Boolean(body.permissionConfirmed)
+        permissionConfirmed: Boolean(body.permissionConfirmed),
+        outputDir: body.outputDir || null
       });
 
       jobs.unshift(job);
@@ -764,7 +885,9 @@ async function handleApi(req, res) {
         interval: body.interval,
         scheduleType: body.scheduleType,
         intervalHours: body.intervalHours,
-        timeOfDay: body.timeOfDay
+        timeOfDay: body.timeOfDay,
+        quality: body.quality,
+        format: body.format
       });
 
       sendJson(res, 201, { playlist });
@@ -772,6 +895,42 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: error.message });
     }
 
+    return true;
+  }
+
+  // Delete a playlist: DELETE /api/playlists/:id
+  const deleteMatch = req.url.match(/^\/api\/playlists\/([^/]+)$/) && req.method === "DELETE";
+  if (deleteMatch) {
+    const id = req.url.split("/")[3];
+    const index = playlists.findIndex((p) => p.id === id);
+    if (index === -1) {
+      sendJson(res, 404, { error: "Playlist not found" });
+      return true;
+    }
+    playlists.splice(index, 1);
+    saveState();
+    sendJson(res, 200, { removed: 1 });
+    return true;
+  }
+
+  // Manual re-sync of an existing playlist: POST /api/playlists/:id/sync
+  const resyncMatch = req.url.match(/^\/api\/playlists\/([^/]+)\/sync$/) && req.method === "POST";
+  if (resyncMatch) {
+    const id = req.url.split("/")[3];
+    const playlist = playlists.find((p) => p.id === id);
+
+    if (!playlist) {
+      sendJson(res, 404, { error: "Playlist not found" });
+      return true;
+    }
+
+    if (playlist.status === "syncing") {
+      sendJson(res, 409, { error: "Sync already in progress" });
+      return true;
+    }
+
+    performPlaylistSync(playlist, "manual");
+    sendJson(res, 202, { playlist });
     return true;
   }
 
@@ -815,6 +974,36 @@ async function handleApi(req, res) {
 
   if (req.url === "/api/history" && req.method === "DELETE") {
     sendJson(res, 200, clearHistory());
+    return true;
+  }
+
+  // Rename a history entry's output file: PATCH /api/history/:id
+  const historyRenameMatch = req.url.match(/^\/api\/history\/([^/]+)$/) && req.method === "PATCH";
+  if (historyRenameMatch) {
+    const id = req.url.split("/")[3];
+    const entry = downloadHistory.find((e) => e.id === id);
+    if (!entry) { sendJson(res, 404, { error: "Not found" }); return true; }
+    try {
+      const body = await readJson(req);
+      const rawName = String(body.newName || "").trim();
+      if (!rawName) throw new Error("Name cannot be empty");
+      const newName = rawName.replace(/[^a-zA-Z0-9 ._-]/g, "_");
+      const oldFull = path.isAbsolute(entry.output) ? entry.output : path.join(runtimeRoot, entry.output);
+      const dir = path.dirname(oldFull);
+      const oldExt = path.extname(oldFull);
+      const newExt = path.extname(newName);
+      const finalName = newExt ? newName : newName + oldExt;
+      const newFull = path.join(dir, finalName);
+      if (path.dirname(newFull) !== dir) throw new Error("Cannot rename across directories");
+      if (fs.existsSync(oldFull)) {
+        fs.renameSync(oldFull, newFull);
+      }
+      entry.output = outputLabel(newFull);
+      saveState();
+      sendJson(res, 200, { entry });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
     return true;
   }
 
