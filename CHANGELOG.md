@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.9
+
+- Fixed EACCES crash on `data/app-state.json` — Dockerfile now sets `chmod 777 data` alongside `secrets` so the bind-mounted data folder is writable by the container user
+- This was causing server crashes on download completion and "broken" UI when adding playlists or saving settings
+
 ## v1.3.8
 
 - Version bump — Docker image rebuilt with latest dependencies
