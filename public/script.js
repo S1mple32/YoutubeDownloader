@@ -41,6 +41,19 @@ const customIntervalField = document.querySelector("#custom-interval-field");
 const dailyTimeField = document.querySelector("#daily-time-field");
 const themeToggle = document.querySelector("#theme-toggle");
 const themeIcon = document.querySelector("#theme-icon");
+const previewModal = document.querySelector("#preview-modal");
+const previewScrim = document.querySelector("#preview-scrim");
+const previewClose = document.querySelector("#preview-close");
+const previewSubtitle = document.querySelector("#preview-subtitle");
+const previewList = document.querySelector("#preview-list");
+const previewSelectedCount = document.querySelector("#preview-selected-count");
+const previewSelectAll = document.querySelector("#preview-select-all");
+const previewDeselectAll = document.querySelector("#preview-deselect-all");
+const previewCancel = document.querySelector("#preview-cancel");
+const previewConfirm = document.querySelector("#preview-confirm");
+
+let previewVideos = [];
+let pendingPlaylistConfig = null;
 
 /* ── Theme ───────────────────────────────────────────────────── */
 
@@ -138,6 +151,113 @@ document.querySelectorAll("[data-close-settings]").forEach((el) => {
   el.addEventListener("click", closeSettings);
 });
 
+/* ── Preview modal ───────────────────────────────────────────── */
+
+function qualityOptions(selected) {
+  return [
+    ["best", "Best available"], ["2160p", "4K / 2160p"],
+    ["1080p", "1080p"], ["720p", "720p"], ["audio", "Audio only"]
+  ].map(([v, l]) => `<option value="${v}"${v === selected ? " selected" : ""}>${l}</option>`).join("");
+}
+
+function formatOptions(selected) {
+  return [
+    ["native", "Fast native"], ["mp4", "MP4"], ["webm", "WebM"], ["mp3", "MP3"]
+  ].map(([v, l]) => `<option value="${v}"${v === selected ? " selected" : ""}>${l}</option>`).join("");
+}
+
+function updatePreviewCount() {
+  const total = previewList.querySelectorAll(".preview-item__check").length;
+  const checked = previewList.querySelectorAll(".preview-item__check:checked").length;
+  previewSelectedCount.textContent = `${checked} of ${total} selected for download`;
+}
+
+function openPreviewModal(videos) {
+  previewVideos = videos;
+  previewSubtitle.textContent = `${videos.length} video${videos.length === 1 ? "" : "s"} found`;
+  previewModal.hidden = false;
+
+  const dq = pendingPlaylistConfig?.quality || "1080p";
+  const df = pendingPlaylistConfig?.format || "native";
+
+  previewList.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  videos.forEach((video, idx) => {
+    const item = document.createElement("label");
+    item.className = "preview-item";
+    item.innerHTML = `
+      <input type="checkbox" class="preview-item__check" checked data-idx="${idx}">
+      <div class="preview-item__info">
+        <span class="preview-item__title">${escapeHtml(video.title || video.id)}</span>
+        <span class="preview-item__url">${escapeHtml(video.url)}</span>
+      </div>
+      <div class="preview-item__config">
+        <select class="preview-item__quality">${qualityOptions(dq)}</select>
+        <select class="preview-item__format">${formatOptions(df)}</select>
+      </div>`;
+    item.querySelector(".preview-item__config").addEventListener("click", (e) => e.stopPropagation());
+    frag.appendChild(item);
+  });
+  previewList.appendChild(frag);
+  updatePreviewCount();
+  previewList.querySelectorAll(".preview-item__check").forEach((cb) => {
+    cb.addEventListener("change", updatePreviewCount);
+  });
+}
+
+function closePreviewModal() {
+  previewModal.hidden = true;
+  previewVideos = [];
+  pendingPlaylistConfig = null;
+}
+
+previewClose.addEventListener("click", closePreviewModal);
+previewCancel.addEventListener("click", closePreviewModal);
+previewScrim.addEventListener("click", closePreviewModal);
+
+previewSelectAll.addEventListener("click", () => {
+  previewList.querySelectorAll(".preview-item__check").forEach((cb) => { cb.checked = true; });
+  updatePreviewCount();
+});
+previewDeselectAll.addEventListener("click", () => {
+  previewList.querySelectorAll(".preview-item__check").forEach((cb) => { cb.checked = false; });
+  updatePreviewCount();
+});
+
+previewConfirm.addEventListener("click", async () => {
+  if (!pendingPlaylistConfig) return;
+  const items = previewList.querySelectorAll(".preview-item");
+  const allIds = [];
+  const toDownload = [];
+  items.forEach((item, idx) => {
+    const video = previewVideos[idx];
+    if (!video) return;
+    const checked = item.querySelector(".preview-item__check").checked;
+    const quality = item.querySelector(".preview-item__quality").value;
+    const format = item.querySelector(".preview-item__format").value;
+    allIds.push(video.id);
+    if (checked) toDownload.push({ url: video.url, quality, format });
+  });
+  previewConfirm.disabled = true;
+  previewConfirm.textContent = "Adding…";
+  try {
+    await request("/api/playlists/sync", {
+      method: "POST",
+      body: JSON.stringify({ ...pendingPlaylistConfig, seenIds: allIds, toDownload })
+    });
+    closePreviewModal();
+    playlistForm.reset();
+    updateScheduleControls();
+    playlistMessage.textContent = `Playlist added. ${toDownload.length} download${toDownload.length === 1 ? "" : "s"} queued.`;
+    await refresh();
+  } catch (error) {
+    playlistMessage.textContent = error.message;
+  } finally {
+    previewConfirm.disabled = false;
+    previewConfirm.textContent = "Add playlist";
+  }
+});
+
 /* ── Render helpers ──────────────────────────────────────────── */
 
 function renderJobs(jobs) {
@@ -200,6 +320,7 @@ function renderPlaylists(playlists) {
         <div><dt>Last sync</dt><dd>${formatDate(playlist.lastSyncAt)}</dd></div>
         <div><dt>Next sync</dt><dd>${formatDate(playlist.nextSyncAt)}</dd></div>
         <div><dt>Schedule</dt><dd>${escapeHtml(playlist.interval)}</dd></div>
+        ${playlist.saveDir ? `<div><dt>Save to</dt><dd style="overflow-wrap:anywhere;font-size:0.78rem">${escapeHtml(playlist.saveDir)}</dd></div>` : ""}
       </dl>
     </article>`;
   }).join("");
@@ -508,26 +629,34 @@ syncInterval.addEventListener("change", updateScheduleControls);
 
 playlistForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  playlistMessage.textContent = "Syncing playlist...";
+  const submitBtn = playlistForm.querySelector("[type=submit]");
+  playlistMessage.textContent = "Fetching playlist videos… (may take a moment for large playlists)";
+  submitBtn.disabled = true;
+
+  pendingPlaylistConfig = {
+    url: document.querySelector("#playlist-url").value,
+    name: document.querySelector("#playlist-name").value,
+    interval: syncInterval.value,
+    scheduleType: syncInterval.value,
+    intervalHours: document.querySelector("#custom-interval-hours").value,
+    timeOfDay: document.querySelector("#sync-time").value,
+    quality: document.querySelector("#playlist-quality").value,
+    format: document.querySelector("#playlist-format").value,
+    saveDir: document.querySelector("#playlist-save-dir").value.trim() || null
+  };
+
   try {
-    await request("/api/playlists/sync", {
+    const data = await request("/api/playlists/preview", {
       method: "POST",
-      body: JSON.stringify({
-        url: document.querySelector("#playlist-url").value,
-        name: document.querySelector("#playlist-name").value,
-        interval: syncInterval.value,
-        scheduleType: syncInterval.value,
-        intervalHours: document.querySelector("#custom-interval-hours").value,
-        timeOfDay: document.querySelector("#sync-time").value,
-        quality: document.querySelector("#playlist-quality").value,
-        format: document.querySelector("#playlist-format").value
-      })
+      body: JSON.stringify({ url: pendingPlaylistConfig.url })
     });
-    playlistForm.reset();
-    playlistMessage.textContent = "Playlist synced.";
-    await refresh();
+    playlistMessage.textContent = "";
+    openPreviewModal(data.videos);
   } catch (error) {
     playlistMessage.textContent = error.message;
+    pendingPlaylistConfig = null;
+  } finally {
+    submitBtn.disabled = false;
   }
 });
 

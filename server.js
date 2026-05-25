@@ -749,7 +749,8 @@ async function performPlaylistSync(playlist, reason = "manual") {
           url: video.url,
           quality: playlist.quality || "1080p",
           format: playlist.format || "mp4",
-          permissionConfirmed: true
+          permissionConfirmed: true,
+          outputDir: playlist.saveDir || null
         });
         jobs.unshift(job);
       }
@@ -765,9 +766,14 @@ async function performPlaylistSync(playlist, reason = "manual") {
   return playlist;
 }
 
-function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOfDay, quality, format }) {
+function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOfDay, quality, format, saveDir, seenIds, toDownload }) {
   const safeUrl = assertWebUrl(url);
   const schedule = normalizeSchedule({ scheduleType, interval, intervalHours, timeOfDay });
+  const resolvedSaveDir = saveDir ? normalizeDownloadDir(saveDir) : null;
+  if (resolvedSaveDir) fs.mkdirSync(resolvedSaveDir, { recursive: true });
+
+  const hasPreview = Array.isArray(seenIds) && seenIds.length > 0;
+  const now = new Date();
 
   const playlist = {
     id: randomUUID(),
@@ -778,18 +784,38 @@ function syncPlaylist({ url, name, interval, scheduleType, intervalHours, timeOf
     schedule,
     quality: quality || "1080p",
     format: format || "mp4",
-    itemsFound: 0,
-    newItems: 0,
-    seenIds: [],
-    lastSyncAt: null,
-    nextSyncAt: null,
-    lastSyncReason: null,
+    saveDir: resolvedSaveDir,
+    itemsFound: hasPreview ? seenIds.length : 0,
+    newItems: hasPreview ? (Array.isArray(toDownload) ? toDownload.length : 0) : 0,
+    seenIds: hasPreview ? [...new Set(seenIds)] : [],
+    lastSyncAt: hasPreview ? now.toISOString() : null,
+    nextSyncAt: hasPreview ? (nextSyncDate(schedule, now)?.toISOString() || null) : null,
+    lastSyncReason: hasPreview ? "created" : null,
     lastError: null,
-    status: "pending"
+    status: hasPreview ? "synced" : "pending"
   };
 
   playlists.unshift(playlist);
-  performPlaylistSync(playlist, "created");
+
+  if (hasPreview) {
+    if (Array.isArray(toDownload)) {
+      for (const video of toDownload) {
+        const job = createJob({
+          url: video.url,
+          quality: video.quality || quality || "1080p",
+          format: video.format || format || "mp4",
+          permissionConfirmed: true,
+          outputDir: resolvedSaveDir
+        });
+        jobs.unshift(job);
+      }
+    }
+    console.log(`[sync] ${playlist.name}: ${seenIds.length} seen, ${toDownload?.length ?? 0} queued from preview`);
+    saveState();
+  } else {
+    performPlaylistSync(playlist, "created");
+  }
+
   return playlist;
 }
 
@@ -876,6 +902,18 @@ async function handleApi(req, res) {
     return true;
   }
 
+  if (req.url === "/api/playlists/preview" && req.method === "POST") {
+    try {
+      const body = await readJson(req);
+      const safeUrl = assertWebUrl(body.url);
+      const videos = await fetchPlaylistVideos(safeUrl);
+      sendJson(res, 200, { videos, count: videos.length });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
+    return true;
+  }
+
   if (req.url === "/api/playlists/sync" && req.method === "POST") {
     try {
       const body = await readJson(req);
@@ -887,7 +925,10 @@ async function handleApi(req, res) {
         intervalHours: body.intervalHours,
         timeOfDay: body.timeOfDay,
         quality: body.quality,
-        format: body.format
+        format: body.format,
+        saveDir: body.saveDir || null,
+        seenIds: Array.isArray(body.seenIds) ? body.seenIds : [],
+        toDownload: Array.isArray(body.toDownload) ? body.toDownload : null
       });
 
       sendJson(res, 201, { playlist });
