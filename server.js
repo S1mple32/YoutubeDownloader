@@ -440,6 +440,43 @@ function clearQueue() {
   };
 }
 
+function removeJob(id) {
+  const index = jobs.findIndex((j) => j.id === id);
+  if (index === -1) return null;
+  const job = jobs[index];
+
+  if (job.output) {
+    const full = path.isAbsolute(job.output) ? job.output : path.join(runtimeRoot, job.output);
+    try { fs.unlinkSync(full); } catch (_) {}
+    try { fs.unlinkSync(full + ".part"); } catch (_) {}
+    // yt-dlp intermediate fragment files e.g. Title.f137.mp4
+    const dir = path.dirname(full);
+    const base = path.basename(full, path.extname(full));
+    try {
+      fs.readdirSync(dir).filter((f) => f.startsWith(base + ".f")).forEach((f) => {
+        try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  jobs.splice(index, 1);
+  return job;
+}
+
+function purgeAllJobs() {
+  const snapshot = [...jobs];
+  jobs.length = 0;
+  let deleted = 0;
+  for (const job of snapshot) {
+    if (job.output) {
+      const full = path.isAbsolute(job.output) ? job.output : path.join(runtimeRoot, job.output);
+      try { fs.unlinkSync(full); deleted++; } catch (_) {}
+      try { fs.unlinkSync(full + ".part"); } catch (_) {}
+    }
+  }
+  return { removed: snapshot.length, filesDeleted: deleted };
+}
+
 function clearHistory() {
   const removed = downloadHistory.length;
   downloadHistory = [];
@@ -901,6 +938,20 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: error.message });
     }
 
+    return true;
+  }
+
+  if (req.url === "/api/jobs/purge" && req.method === "DELETE") {
+    sendJson(res, 200, purgeAllJobs());
+    return true;
+  }
+
+  const jobRemoveMatch = req.url.match(/^\/api\/jobs\/([^/]+)$/) && req.method === "DELETE";
+  if (jobRemoveMatch) {
+    const id = req.url.split("/")[3];
+    const job = removeJob(id);
+    if (!job) { sendJson(res, 404, { error: "Job not found" }); return true; }
+    sendJson(res, 200, { removed: 1, id });
     return true;
   }
 

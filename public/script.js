@@ -27,6 +27,7 @@ const downloadsDir = document.querySelector("#downloads-dir");
 const downloadsMessage = document.querySelector("#downloads-message");
 const downloadsStatus = document.querySelector("#downloads-status");
 const clearQueueButton = document.querySelector("#clear-queue-button");
+const purgeQueueButton = document.querySelector("#purge-queue-button");
 const clearHistoryButton = document.querySelector("#clear-history-button");
 const checkUpdatesButton = document.querySelector("#check-updates-button");
 const updateCurrentVersion = document.querySelector("#update-current-version");
@@ -275,6 +276,7 @@ function renderJobs(jobs) {
           <div style="display:flex;align-items:center;gap:8px">
             <span class="badge badge--${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
             ${job.status === "skipped" ? `<button class="button button--ghost button--compact" data-force-url="${escapeHtml(job.url)}" data-force-quality="${escapeHtml(job.quality)}" data-force-format="${escapeHtml(job.format)}">↻ Force</button>` : ""}
+            <button class="button button--ghost button--compact button--danger" data-remove-job="${escapeHtml(job.id)}" title="Remove job and delete file">🗑</button>
           </div>
         </div>
         <div class="progress" aria-label="Download progress">
@@ -287,6 +289,17 @@ function renderJobs(jobs) {
         <p class="job__message">${escapeHtml(job.message)}</p>
       </article>`;
   }).join("");
+
+  document.querySelectorAll("[data-remove-job]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.removeJob;
+      btn.disabled = true;
+      try {
+        await request(`/api/jobs/${id}`, { method: "DELETE" });
+        await refresh();
+      } catch (error) { btn.disabled = false; }
+    });
+  });
 
   document.querySelectorAll("[data-force-url]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -616,6 +629,18 @@ checkUpdatesButton.addEventListener("click", async () => {
     await loadUpdateStatus();
   } finally {
     checkUpdatesButton.disabled = false;
+  }
+});
+
+purgeQueueButton.addEventListener("click", async () => {
+  if (!confirm("This will remove ALL queued jobs and delete their files from disk. Continue?")) return;
+  queueMessage.textContent = "Purging…";
+  try {
+    const data = await request("/api/jobs/purge", { method: "DELETE" });
+    queueMessage.textContent = `Removed ${data.removed} job(s), deleted ${data.filesDeleted} file(s).`;
+    await refresh();
+  } catch (error) {
+    queueMessage.textContent = error.message;
   }
 });
 
