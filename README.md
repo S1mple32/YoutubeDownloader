@@ -2,7 +2,7 @@
 
 A Docker-based video download and playlist sync manager with a clean web UI.
 
-![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen) ![Version](https://img.shields.io/badge/version-1.3.4-teal)
+![Docker](https://img.shields.io/badge/Docker-ready-blue) ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-green) ![Node](https://img.shields.io/badge/Node-20-brightgreen) ![Version](https://img.shields.io/badge/version-1.3.5-teal)
 
 <img width="1332" height="829" alt="YtMark1 light mode" src="https://github.com/user-attachments/assets/145f1c7d-555d-4004-81bb-0bc0032553f6" />
 <img width="1512" height="852" alt="YtMark1 dark mode" src="https://github.com/user-attachments/assets/4d0691fb-09ac-40ad-b2ef-34be06d7b5cf" />
@@ -10,16 +10,18 @@ A Docker-based video download and playlist sync manager with a clean web UI.
 ## Features
 
 - **Dark mode** — toggle (☾/☀) in the topbar, respects OS preference, persists across reloads
-- **Download queue** — paste any YouTube URL, pick quality and format, add to queue
+- **Download queue** — paste any YouTube URL, pick quality, format, and an optional save folder
+- **Inline file rename** — click ✎ on any history entry to rename the file on disk in place
+- **Custom save folder** — optionally set a per-download output directory from the download form
 - **Quality options** — Best, 4K/2160p, 1080p, 720p, Audio only
 - **Format options** — Fast native, MP4, WebM, MP3
 - **Concurrent fragments** — faster downloads with parallel chunk fetching
 - **Real playlist sync** — fetches live video lists via `yt-dlp`, tracks seen IDs, only queues new videos
 - **Playlist delete** — remove a playlist and its tracked history with one click
 - **Per-playlist settings** — choose quality and format per playlist
-- **Cookies upload** — upload `cookies.txt` from the UI, no server access needed
+- **Cookies upload** — upload `cookies.txt` from the Settings UI (no server access needed)
 - **Live progress cards** — real-time percent, speed, and status per download
-- **Download history** — persistent log of completed downloads
+- **Download history** — persistent log of completed downloads with rename support
 - **Tabbed settings drawer** — Updates · Cookies · Storage with color status indicators
 - **Health endpoint** — `GET /health` for container monitoring
 
@@ -66,16 +68,24 @@ Add a YouTube playlist URL and set a sync schedule. On first sync, all existing 
 - Use the **✕** button to delete a playlist and its history
 - Each playlist stores its own quality and format preference
 
+## Renaming Files
+
+Each completed download in the History panel has a **✎** (pencil) button that appears on hover. Click it to edit the filename inline — press Enter or **Save** to rename the file on disk, or **✕** / Escape to cancel. The extension is preserved automatically if you omit it.
+
+## Custom Save Folder
+
+The download form includes an optional **Save to folder** field. Leave it blank to use the default downloads directory. Enter any absolute path (e.g. `/mnt/media/movies`) or a path relative to the app root and that job will save there. The folder is created automatically if it doesn't exist.
+
 ## API
 
 ```bash
 # Server status + version
 curl http://localhost:3002/api/status
 
-# Queue a download
+# Queue a download (optional outputDir)
 curl -X POST http://localhost:3002/api/jobs \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://youtu.be/VIDEO_ID","quality":"1080p","format":"mp4","permissionConfirmed":true}'
+  -d '{"url":"https://youtu.be/VIDEO_ID","quality":"1080p","format":"mp4","permissionConfirmed":true,"outputDir":"/custom/path"}'
 
 # List active jobs
 curl http://localhost:3002/api/jobs
@@ -96,6 +106,11 @@ curl -X DELETE http://localhost:3002/api/playlists/PLAYLIST_ID
 
 # Download history
 curl http://localhost:3002/api/history
+
+# Rename a history entry's file on disk
+curl -X PATCH http://localhost:3002/api/history/HISTORY_ID \
+  -H "Content-Type: application/json" \
+  -d '{"newName":"my-video.mp4"}'
 
 # Clear history
 curl -X DELETE http://localhost:3002/api/history

@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.3.5
+
+- Added inline file rename — ✎ button on each history entry renames the file on disk in place
+- Added optional per-download save folder field in the download form
+- `PATCH /api/history/:id` endpoint renames the output file and updates history
+- `outputDir` parameter added to `POST /api/jobs` and passed through to yt-dlp and direct downloads
+- Fixed EACCES cookie upload error — `secrets/` directory now gets `chmod 777` at Dockerfile build time
+- Fixed bind-mounted secrets dir permissions on existing installs (no image rebuild required)
+
 ## v1.3.4
 
 - Added dark mode with toggle button (☾/☀) in the topbar
@@ -14,7 +23,6 @@
 - Inline error display on failed playlist syncs
 - Added ↻ Sync button for on-demand manual re-sync per playlist
 - Added ✕ delete button to remove a playlist
-- Bumped version to 1.3.4
 
 ## v1.3.3
 
