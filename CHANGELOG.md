@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.8
+
+- Version bump — Docker image rebuilt with latest dependencies
+
 ## v1.3.7
 
 - **Max concurrent downloads** — new setting in Settings → Storage tab; limits how many downloads run simultaneously (default 3, adjustable 1–20)
