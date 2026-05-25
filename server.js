@@ -316,6 +316,7 @@ function argsForDownloader(job) {
     "--newline",
     "--no-playlist",
     "--restrict-filenames",
+    job.forceDownload ? "--force-overwrites" : "--no-overwrites",
     "--concurrent-fragments",
     "8",
     "--js-runtimes", "node",
@@ -457,6 +458,15 @@ function updateDownloaderProgress(job, line) {
   const mergerStartMatch = cleanLine.match(/\[(Merger|VideoConvertor|ExtractAudio)\]/);
   const mergedMatch = cleanLine.match(/\[Merger\]\s+Merging formats into\s+"(.+)"/);
 
+  const skippedMatch = cleanLine.match(/has already been downloaded/);
+  if (skippedMatch) {
+    job.status = "skipped";
+    job.progress = 100;
+    job.message = "File already exists — skipped. Use ↻ Force to re-download.";
+    job.updatedAt = new Date().toISOString();
+    return;
+  }
+
   if (percentMatch) {
     job.progress = Math.min(99, Math.floor(Number(percentMatch[1])));
     job.status = "downloading";
@@ -514,7 +524,7 @@ function runDownloader(job) {
   });
 
   child.on("close", (code) => {
-    if (job.status === "blocked") {
+    if (job.status === "blocked" || job.status === "skipped") {
       return;
     }
 
@@ -542,7 +552,7 @@ function tickJob(job) {
   }
 }
 
-function createJob({ url, quality, format, permissionConfirmed, outputDir }) {
+function createJob({ url, quality, format, permissionConfirmed, outputDir, forceDownload }) {
   const safeUrl = assertWebUrl(url);
 
   let resolvedOutputDir = null;
@@ -559,6 +569,7 @@ function createJob({ url, quality, format, permissionConfirmed, outputDir }) {
       quality,
       format,
       outputDir: resolvedOutputDir,
+      forceDownload: Boolean(forceDownload),
       status: "blocked",
       progress: 0,
       message: "Confirm you have rights or permission to download this media.",
@@ -880,7 +891,8 @@ async function handleApi(req, res) {
         quality: body.quality || "1080p",
         format: body.format || "mp4",
         permissionConfirmed: Boolean(body.permissionConfirmed),
-        outputDir: body.outputDir || null
+        outputDir: body.outputDir || null,
+        forceDownload: Boolean(body.forceDownload)
       });
 
       jobs.unshift(job);

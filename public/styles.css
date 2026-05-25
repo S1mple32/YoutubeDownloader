@@ -461,6 +461,10 @@ select:focus {
   color: var(--danger);
 }
 
+.badge--skipped {
+  color: var(--muted);
+}
+
 .progress {
   height: 10px;
   overflow: hidden;

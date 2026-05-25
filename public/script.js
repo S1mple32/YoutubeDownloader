@@ -272,7 +272,10 @@ function renderJobs(jobs) {
             <strong>${escapeHtml(job.source)}</strong>
             <p>${escapeHtml(job.url)}</p>
           </div>
-          <span class="badge badge--${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge badge--${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
+            ${job.status === "skipped" ? `<button class="button button--ghost button--compact" data-force-url="${escapeHtml(job.url)}" data-force-quality="${escapeHtml(job.quality)}" data-force-format="${escapeHtml(job.format)}">↻ Force</button>` : ""}
+          </div>
         </div>
         <div class="progress" aria-label="Download progress">
           <span style="width: ${progress}%"></span>
@@ -284,6 +287,29 @@ function renderJobs(jobs) {
         <p class="job__message">${escapeHtml(job.message)}</p>
       </article>`;
   }).join("");
+
+  document.querySelectorAll("[data-force-url]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = "Queuing…";
+      try {
+        await request("/api/jobs", {
+          method: "POST",
+          body: JSON.stringify({
+            url: btn.dataset.forceUrl,
+            quality: btn.dataset.forceQuality,
+            format: btn.dataset.forceFormat,
+            permissionConfirmed: true,
+            forceDownload: true
+          })
+        });
+        await refresh();
+      } catch (error) {
+        btn.disabled = false;
+        btn.textContent = "↻ Force";
+      }
+    });
+  });
 }
 
 function renderPlaylists(playlists) {
@@ -524,7 +550,8 @@ downloadForm.addEventListener("submit", async (event) => {
         quality: document.querySelector("#quality").value,
         format: document.querySelector("#format").value,
         permissionConfirmed: document.querySelector("#permission-confirmed").checked,
-        outputDir: outputDirValue || null
+        outputDir: outputDirValue || null,
+        forceDownload: document.querySelector("#force-download").checked
       })
     });
     downloadForm.reset();
