@@ -26,6 +26,7 @@ let playlists = [];
 let downloadHistory = [];
 let settings = {
   downloadsDir: defaultDownloadsDir,
+  maxConcurrentDownloads: 3,
   lastUpdateCheck: null
 };
 fs.mkdirSync(defaultDownloadsDir, { recursive: true });
@@ -257,6 +258,7 @@ function runDirectDownload(job) {
       job.status = "blocked";
       job.message = `Download failed with HTTP ${response.statusCode}`;
       job.updatedAt = new Date().toISOString();
+      tickDownloadQueue();
       return;
     }
 
@@ -285,6 +287,7 @@ function runDirectDownload(job) {
     job.status = "blocked";
     job.message = error.message;
     job.updatedAt = new Date().toISOString();
+    tickDownloadQueue();
   });
 }
 
@@ -308,6 +311,8 @@ function completeJob(job, output) {
     });
     saveState();
   }
+
+  tickDownloadQueue();
 }
 
 function argsForDownloader(job) {
@@ -374,7 +379,7 @@ function saveCookies(content) {
   };
 }
 
-function saveDownloadSettings(downloadsDirValue) {
+function saveDownloadSettings({ downloadsDir: downloadsDirValue, maxConcurrentDownloads } = {}) {
   const nextDir = normalizeDownloadDir(downloadsDirValue);
   fs.mkdirSync(nextDir, { recursive: true });
 
@@ -385,10 +390,17 @@ function saveDownloadSettings(downloadsDirValue) {
   }
 
   settings.downloadsDir = nextDir;
+
+  const limit = Number.parseInt(maxConcurrentDownloads, 10);
+  if (Number.isFinite(limit) && limit >= 1 && limit <= 20) {
+    settings.maxConcurrentDownloads = limit;
+  }
+
   saveState();
 
   return {
-    downloadsDir: getDownloadsDir()
+    downloadsDir: getDownloadsDir(),
+    maxConcurrentDownloads: settings.maxConcurrentDownloads
   };
 }
 
@@ -558,10 +570,12 @@ function runDownloader(job) {
       ? "yt-dlp is not installed. Run with Docker or install yt-dlp locally."
       : error.message;
     job.updatedAt = new Date().toISOString();
+    tickDownloadQueue();
   });
 
   child.on("close", (code) => {
     if (job.status === "blocked" || job.status === "skipped") {
+      tickDownloadQueue();
       return;
     }
 
@@ -571,6 +585,7 @@ function runDownloader(job) {
       job.status = "blocked";
       job.message = errorLog.trim().split(/\r?\n/).slice(-1)[0] || `yt-dlp exited with code ${code}`;
       job.updatedAt = new Date().toISOString();
+      tickDownloadQueue();
     }
   });
 }
@@ -584,8 +599,29 @@ function tickJob(job) {
   job.status = job.progress >= 100 ? "complete" : "downloading";
   job.updatedAt = new Date().toISOString();
 
-  if (job.status !== "complete") {
+  if (job.status === "complete") {
+    tickDownloadQueue();
+  } else {
     setTimeout(() => tickJob(job), 900);
+  }
+}
+
+function tickDownloadQueue() {
+  const limit = Math.max(1, settings.maxConcurrentDownloads || 3);
+  const active = jobs.filter((j) => j.status === "downloading" || j.status === "merging").length;
+  const slots = limit - active;
+  if (slots <= 0) return;
+
+  // jobs array is newest-first (unshift); iterate reversed for FIFO
+  const toStart = [...jobs].reverse().filter((j) => j.status === "queued").slice(0, slots);
+  for (const job of toStart) {
+    if (isDirectMediaUrl(job.url)) {
+      runDirectDownload(job);
+    } else if (job.source === "YouTube") {
+      runDownloader(job);
+    } else {
+      tickJob(job);
+    }
   }
 }
 
@@ -622,6 +658,7 @@ function createJob({ url, quality, format, permissionConfirmed, outputDir, force
     quality,
     format,
     outputDir: resolvedOutputDir,
+    forceDownload: Boolean(forceDownload),
     status: "queued",
     progress: 0,
     message: "Queued for download",
@@ -629,13 +666,7 @@ function createJob({ url, quality, format, permissionConfirmed, outputDir, force
     updatedAt: new Date().toISOString()
   };
 
-  if (isDirectMediaUrl(safeUrl)) {
-    setTimeout(() => runDirectDownload(job), 250);
-  } else if (job.source === "YouTube") {
-    setTimeout(() => runDownloader(job), 250);
-  } else {
-    setTimeout(() => tickJob(job), 500);
-  }
+  setTimeout(tickDownloadQueue, 50);
 
   return job;
 }
@@ -1060,7 +1091,8 @@ async function handleApi(req, res) {
   if (req.url === "/api/settings/downloads" && req.method === "GET") {
     sendJson(res, 200, {
       downloadsDir: getDownloadsDir(),
-      defaultDownloadsDir
+      defaultDownloadsDir,
+      maxConcurrentDownloads: settings.maxConcurrentDownloads || 3
     });
     return true;
   }
@@ -1068,7 +1100,10 @@ async function handleApi(req, res) {
   if (req.url === "/api/settings/downloads" && req.method === "POST") {
     try {
       const body = await readJson(req);
-      sendJson(res, 200, saveDownloadSettings(body.downloadsDir));
+      sendJson(res, 200, saveDownloadSettings({
+        downloadsDir: body.downloadsDir,
+        maxConcurrentDownloads: body.maxConcurrentDownloads
+      }));
     } catch (error) {
       sendJson(res, 400, { error: error.message });
     }

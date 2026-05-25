@@ -26,6 +26,10 @@ const downloadsForm = document.querySelector("#downloads-form");
 const downloadsDir = document.querySelector("#downloads-dir");
 const downloadsMessage = document.querySelector("#downloads-message");
 const downloadsStatus = document.querySelector("#downloads-status");
+const concurrentForm = document.querySelector("#concurrent-form");
+const concurrentInput = document.querySelector("#concurrent-input");
+const concurrentDisplay = document.querySelector("#concurrent-display");
+const concurrentMessage = document.querySelector("#concurrent-message");
 const clearQueueButton = document.querySelector("#clear-queue-button");
 const purgeQueueButton = document.querySelector("#purge-queue-button");
 const clearHistoryButton = document.querySelector("#clear-history-button");
@@ -534,6 +538,9 @@ async function loadDownloadSettings() {
     const data = await request("/api/settings/downloads");
     downloadsDir.value = data.downloadsDir;
     downloadsStatus.textContent = data.downloadsDir;
+    const limit = data.maxConcurrentDownloads || 3;
+    concurrentInput.value = limit;
+    concurrentDisplay.textContent = limit;
   } catch {
     downloadsStatus.textContent = "Could not check folder";
   }
@@ -612,6 +619,26 @@ downloadsForm.addEventListener("submit", async (event) => {
     downloadsMessage.textContent = "Saved.";
   } catch (error) {
     downloadsMessage.textContent = error.message;
+  }
+});
+
+concurrentForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  concurrentMessage.textContent = "Saving…";
+  try {
+    const data = await request("/api/settings/downloads", {
+      method: "POST",
+      body: JSON.stringify({
+        downloadsDir: downloadsDir.value,
+        maxConcurrentDownloads: Number(concurrentInput.value)
+      })
+    });
+    const limit = data.maxConcurrentDownloads || 3;
+    concurrentInput.value = limit;
+    concurrentDisplay.textContent = limit;
+    concurrentMessage.textContent = "Saved.";
+  } catch (error) {
+    concurrentMessage.textContent = error.message;
   }
 });
 

@@ -293,6 +293,19 @@
             <button class="sd-btn sd-btn--primary" type="submit">Save</button>
           </form>
           <p class="sd-message" id="downloads-message" role="status"></p>
+
+          <div class="sd-rows" style="margin-top:16px">
+            <div class="sd-row">
+              <span class="sd-row__label">Concurrent downloads</span>
+              <strong class="sd-row__value" id="concurrent-display">3</strong>
+            </div>
+          </div>
+          <p class="sd-note">Max downloads running at the same time. 3 recommended. Others wait in queue.</p>
+          <form id="concurrent-form" class="sd-inline-form">
+            <input id="concurrent-input" type="number" min="1" max="20" value="3" class="sd-input" style="max-width:80px">
+            <button class="sd-btn sd-btn--primary" type="submit">Save limit</button>
+          </form>
+          <p class="sd-message" id="concurrent-message" role="status"></p>
         </div>
 
       </aside>
