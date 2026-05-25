@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.7
+
+- **Max concurrent downloads** — new setting in Settings → Storage tab; limits how many downloads run simultaneously (default 3, adjustable 1–20)
+- Downloads beyond the limit stay queued and start automatically when a slot opens
+- `maxConcurrentDownloads` persisted in app state and exposed via `GET /api/settings/downloads`
+- `POST /api/settings/downloads` now also accepts `maxConcurrentDownloads` to update the limit
+- Fixed `forceDownload` flag not being passed through to queued jobs (force re-download was silently ignored)
+
 ## v1.3.6
 
 - **Playlist preview modal** — fetches videos before adding; shows all entries with checkboxes and per-video quality/format selects
