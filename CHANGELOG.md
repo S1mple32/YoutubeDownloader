@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.10
+## v1.4.0
 
 - Fixed playlist preview modal not centering — replaced fragile transform-based centering with flexbox on `#preview-modal`
 - Fixed quality and format dropdowns appearing stacked below video titles — added `!important` overrides so global `input/select` width/min-height rules don't break the per-video selects
