@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.10
+
+- Fixed playlist preview modal not centering — replaced fragile transform-based centering with flexbox on `#preview-modal`
+- Fixed quality and format dropdowns appearing stacked below video titles — added `!important` overrides so global `input/select` width/min-height rules don't break the per-video selects
+- Fixed preview list not scrolling on large playlists — added `min-height: 0` to the flex list so it scrolls internally instead of pushing the footer off screen
+
 ## v1.3.9
 
 - Fixed EACCES crash on `data/app-state.json` — Dockerfile now sets `chmod 777 data` alongside `secrets` so the bind-mounted data folder is writable by the container user
